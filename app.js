@@ -826,6 +826,7 @@
     $("#stSide").checked = settings.showSide; $("#stShowFind").checked = settings.showFind; $("#stShowFT").checked = settings.showFT; $("#stLog").checked = settings.logUsage;
     $("#stPinState").textContent = settings.pin ? "PIN ativo. Ele é pedido para abrir as configurações." : "Sem PIN: qualquer pessoa pode editar. Recomendado definir um PIN.";
     $("#stPin").textContent = settings.pin ? "Trocar PIN" : "Definir PIN";
+    showVersion();
     $("#dlgSettings").showModal();
   }
   const bind = (sel, ev, fn) => $(sel).addEventListener(ev, (e) => { fn(e.target); save(); });
@@ -1159,6 +1160,28 @@
   })();
   $("#stInstall").onclick = () => { $("#dlgSettings").close(); install.show(true); };
 
+  /* ---------- Versão e atualização ---------- */
+  async function showVersion() {
+    let v = "";
+    try { const ks = await caches.keys(); v = (ks.find((k) => k.startsWith("fala-junto-")) || "").replace("fala-junto-", ""); } catch (e) {}
+    $("#stVersion").textContent = "Versão instalada: " + (v || "prévia (sem modo offline)");
+  }
+  $("#stUpdate").onclick = async () => {
+    const btn = $("#stUpdate"); btn.disabled = true; btn.textContent = "Procurando…";
+    try {
+      const reg = navigator.serviceWorker && (await navigator.serviceWorker.getRegistration());
+      if (!reg) { toast("Atualização automática indisponível aqui. Recarregue a página."); return; }
+      const before = (await caches.keys()).join();
+      await reg.update();
+      const nw = reg.installing || reg.waiting;
+      if (nw) await new Promise((res) => { nw.addEventListener("statechange", () => nw.state === "activated" && res()); setTimeout(res, 15000); });
+      const after = (await caches.keys()).join();
+      if (after !== before || nw) { toast("Versão nova instalada. Reabrindo…"); setTimeout(() => location.reload(), 800); }
+      else toast("Você já está na versão mais recente.");
+    } catch (e) { toast("Não consegui procurar atualização. Verifique a internet."); }
+    finally { btn.disabled = false; btn.textContent = "Procurar atualização"; showVersion(); }
+  };
+
   /* ---------- Início ---------- */
   async function boot() {
     try { set = await store.get("set"); } catch (e) {}
@@ -1187,7 +1210,7 @@
     document.addEventListener("touchend", unlock, { once: true });
     // offline (PWA)
     if ("serviceWorker" in navigator && /^https:|^http:\/\/localhost/.test(location.href) && document.querySelector('link[rel="manifest"]')) {
-      navigator.serviceWorker.register("sw.js").catch(() => {});
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then((reg) => reg.update()).catch(() => {});
     }
   }
   window.addEventListener("beforeunload", () => { store.set("set", set); store.set("settings", settings); });
