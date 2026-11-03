@@ -53,7 +53,7 @@
   const DEFAULT_SETTINGS = {
     voiceURI: "", rate: 0.95, pitch: 1.1, speakOnTap: true, showLabels: true, showPics: true, fontScale: 1,
     pin: "", scan: { enabled: false, mode: "auto", interval: 1500, audio: false, touch: true },
-    showSide: true, showGame: true, game: { board: "", count: 9, rounds: 10, hint: false, names: false, shuffle: true }, sentenceMode: "frase", holdMs: 0, debounceMs: 0, showFind: true, showFT: true, logUsage: false,
+    showSide: true, showGame: true, showRelated: true, focusMode: false, game: { board: "", count: 9, rounds: 10, hint: false, names: false, shuffle: true }, sentenceMode: "frase", holdMs: 0, debounceMs: 0, showFind: true, showFT: true, logUsage: false,
     ft: { a: { image: "sym/m-wash-hands-to.svg", label: "lavar as mãos" }, b: { image: "sym/m-play-to.svg", label: "brincar" }, done: false },
   };
   let set = null;       // { version, root, boards: {id: board} }
@@ -162,6 +162,7 @@
           el.setAttribute("aria-label", btn.label + (btn.loadBoard ? ", pasta" : ""));
           if (movingId === btn.id) el.classList.add("moving");
           if (btn.hidden) el.classList.add("is-hidden");
+          if (btn.focus) el.classList.add("focus-on");
           if (btn.sound && editing) { const s = document.createElement("span"); s.className = "snd"; s.textContent = "🎙"; el.appendChild(s); }
         } else {
           el.classList.add("empty");
@@ -172,6 +173,8 @@
       }
     }
     $("#editbar").hidden = !editing;
+    grid.classList.toggle("focus-mode", !!settings.focusMode && !editing && b.buttons.some((x) => x.focus));
+    if (editing) $("#related").hidden = true;
     renderSide();
     $("#btnFind").hidden = !settings.showFind;
     $("#btnFT").hidden = !settings.showFT;
@@ -238,6 +241,7 @@
     renderStrip();
     logUse(btn);
     if (settings.speakOnTap || settings.sentenceMode === "direto") sayWord(w);
+    if (!fromScan) showRelated(btn);
   }
   let audioEl = null;
   function playSound(src) {
@@ -293,6 +297,7 @@
     const id = el.dataset.id;
     if (editing) {
       if (movingId) { moveTo(+el.dataset.r, +el.dataset.c); return; }
+      if (markingFocus) { if (id) { const x = btnById(b, id); if (x.focus) delete x.focus; else x.focus = true; save(); render(); } return; }
       openButtonEditor(id ? btnById(b, id) : null, +el.dataset.r, +el.dataset.c);
       return;
     }
@@ -402,6 +407,7 @@
     $("#dbVoc").value = draft.vocalization || "";
     $("#dbDelete").hidden = isNew; $("#dbMove").hidden = isNew;
     $("#dbHidden").checked = !!draft.hidden;
+    $("#dbFocus").checked = !!draft.focus;
     updateRec();
     // cores
     const sw = $("#dbSw"); sw.innerHTML = "";
@@ -442,6 +448,7 @@
     else delete d.loadBoard;
     if (d.loadBoard) { d.bg = COLORS.pasta; d.cat = "pasta"; }
     if ($("#dbHidden").checked) d.hidden = true; else delete d.hidden;
+    if ($("#dbFocus").checked) d.focus = true; else delete d.focus;
     if (!d.sound) delete d.sound;
     if (edit.isNew) { b.buttons.push(d); b.grid[edit.r][edit.c] = d.id; }
     else { const i = b.buttons.findIndex((x) => x.id === d.id); b.buttons[i] = d; }
@@ -628,6 +635,104 @@
       g.innerHTML = '<p class="note">Não foi possível acessar o ARASAAC. Verifique a internet. Nesta prévia online o acesso externo pode estar bloqueado; no app instalado funciona.</p>';
     }
   }
+
+
+  /* ---------- Palavras relacionadas ---------- */
+  // "@id" = pasta. As palavras são procuradas pelo nome em todas as pranchas.
+  const RELATED = {
+    "quero": ["comer", "beber", "brincar", "ir", "mais", "ajuda"],
+    "comer": ["@comida", "com fome", "mais", "acabou", "gosto", "não gosto"],
+    "beber": ["água", "suco", "leite", "@bebidas", "mais", "com sede"],
+    "brincar": ["@brincar", "bola", "de novo", "minha vez", "sua vez", "parque"],
+    "ir": ["casa", "escola", "parque", "banheiro", "carro", "lá fora"],
+    "não": ["não quero", "parar", "não gosto", "acabou", "esperar"],
+    "não gosto": ["não quero", "parar", "nojento", "acabou", "outro"],
+    "gosto": ["mais", "de novo", "legal!", "quero"],
+    "mais": ["de novo", "quero", "comer", "beber", "brincar"],
+    "ajuda": ["abrir", "pegar", "não sei", "por favor", "dói"],
+    "dói": ["cabeça", "barriga", "dente", "perna", "machucado", "@corpo"],
+    "banheiro": ["cocô", "lavar as mãos", "ir ao banheiro", "ajuda"],
+    "dormir": ["hora de dormir", "cansado", "com sono", "noite"],
+    "abrir": ["porta", "ajuda", "fechar", "por favor"],
+    "pegar": ["bola", "água", "ajuda", "me dá"],
+    "olhar": ["olha!", "televisão", "livro", "celular"],
+    "fazer": ["desenhar", "pintar", "construir", "cozinhar"],
+    "abraço": ["mamãe", "papai", "te amo", "quero colo"],
+    "parar": ["não", "acabou", "esperar", "preciso de pausa"],
+    "acabou": ["mais", "outro", "tchau", "não quero"],
+    "esperar": ["agora", "depois", "minha vez", "sua vez"],
+    "eu": ["quero", "gosto", "não gosto", "estou bem", "@sentimentos"],
+    "você": ["quer?", "gosta?", "ajuda", "vem cá"],
+    "oi": ["tudo bem?", "meu nome é", "bom dia"],
+    "tchau": ["até logo", "beijo", "acabou"],
+    "feliz": ["gosto", "rindo", "legal!", "de novo"],
+    "triste": ["chorando", "quero colo", "abraço", "mamãe"],
+    "bravo": ["parar", "quero ficar sozinho", "preciso de pausa", "não"],
+    "com medo": ["mamãe", "abraço", "quero colo", "ajuda"],
+    "cansado": ["dormir", "soneca", "preciso de pausa", "casa"],
+    "com fome": ["comer", "@comida", "lanche", "quero"],
+    "com sede": ["beber", "água", "suco", "@bebidas"],
+  };
+  const RELATED_N = Object.fromEntries(Object.entries(RELATED).map(([k, v]) => [norm(k), v]));
+  function findByLabel(label) {
+    if (label.startsWith("@")) {
+      const id = label.slice(1); const b = set.boards[id];
+      if (!b) return null;
+      const f = Object.values(set.boards).flatMap((x) => x.buttons).find((x) => x.loadBoard === id && !x.hidden);
+      return f || { label: b.name, image: "", loadBoard: id, bg: COLORS.pasta };
+    }
+    const k = norm(label);
+    const cur = board().buttons.find((x) => norm(x.label) === k && !x.hidden && !x.loadBoard);
+    if (cur) return cur;
+    for (const b of Object.values(set.boards)) { const x = b.buttons.find((y) => norm(y.label) === k && !y.hidden && !y.loadBoard); if (x) return x; }
+    return null;
+  }
+  let relT = null;
+  function showRelated(btn) {
+    const bar = $("#related");
+    clearTimeout(relT);
+    if (!settings.showRelated || !btn || btn.loadBoard || scan.active()) { bar.hidden = true; return; }
+    const list = (RELATED_N[norm(btn.label)] || RELATED_N[norm(btn.vocalization || "")] || []).map(findByLabel).filter((x) => x && norm(x.label) !== norm(btn.label)).slice(0, 6);
+    if (!list.length) { bar.hidden = true; return; }
+    bar.innerHTML = "";
+    const t = document.createElement("span"); t.className = "rt"; t.textContent = "Relacionadas:"; bar.appendChild(t);
+    list.forEach((x) => {
+      const b = document.createElement("button"); b.type = "button"; b.style.background = x.bg || "#fff";
+      const p = picEl(x.image); if (p) b.appendChild(p);
+      const s = document.createElement("span"); s.textContent = x.label; b.appendChild(s);
+      b.onclick = () => { bar.hidden = true; activate(x, false); };
+      bar.appendChild(b);
+    });
+    const close = document.createElement("button"); close.type = "button"; close.className = "x"; close.textContent = "✕"; close.setAttribute("aria-label", "Fechar sugestões");
+    close.onclick = () => (bar.hidden = true); bar.appendChild(close);
+    bar.hidden = false;
+    relT = setTimeout(() => (bar.hidden = true), 12000);
+  }
+
+  /* ---------- Modo foco ---------- */
+  let markingFocus = false;
+  $("#btnMarkFocus").onclick = () => {
+    markingFocus = !markingFocus;
+    $("#btnMarkFocus").classList.toggle("marking", markingFocus);
+    $("#btnMarkFocus").textContent = markingFocus ? "Pronto (foco)" : "Marcar foco";
+    toast(markingFocus ? "Toque nos quadros para marcar ou desmarcar o foco." : "Marcação de foco concluída.");
+  };
+  function focusCount() { return Object.values(set.boards).reduce((n, b) => n + b.buttons.filter((x) => x.focus).length, 0); }
+
+  /* ---------- Dicas e criar com IA ---------- */
+  $("#stTips").onclick = () => $("#dlgTips").showModal();
+  const aiText = (w) => `Desenhe um pictograma simples de “${w || "…"}”, no estilo de símbolo de comunicação alternativa para crianças: desenho chapado, contorno preto grosso, cores vivas, um único objeto centralizado, fundo branco liso, sem texto e sem sombras.`;
+  $("#dbAI").onclick = () => { $("#aiWhat").value = $("#dbLabel").value; $("#aiPrompt").textContent = aiText($("#aiWhat").value); $("#dlgAI").showModal(); };
+  $("#aiWhat").addEventListener("input", () => ($("#aiPrompt").textContent = aiText($("#aiWhat").value)));
+  $("#aiCopy").onclick = async () => {
+    try { await navigator.clipboard.writeText($("#aiPrompt").textContent); toast("Texto copiado. Cole no app de IA."); }
+    catch (e) { const r = document.createRange(); r.selectNodeContents($("#aiPrompt")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast("Texto selecionado. Toque em Copiar."); }
+  };
+  $("#aiPick").addEventListener("change", async (e) => {
+    const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+    try { edit.draft.image = await shrinkImage(f, 360); edit.draft.imageLicense = "Criada com IA pela família"; if (!$("#dbLabel").value) $("#dbLabel").value = $("#aiWhat").value; updatePrev(); $("#dlgAI").close(); }
+    catch (err) { toast("Não consegui abrir essa imagem."); }
+  });
 
   /* ---------- Primeiro / Depois ---------- */
   function renderFT() {
@@ -894,7 +999,7 @@
     openButtonEditor(null, pos[0], pos[1]);
   };
   $("#btnBoardProps").onclick = () => openBoardProps(board());
-  $("#btnDoneEdit").onclick = () => { editing = false; movingId = null; render(); };
+  $("#btnDoneEdit").onclick = () => { editing = false; movingId = null; if (markingFocus) $("#btnMarkFocus").click(); render(); };
   let boardEdit = null;
   function openBoardProps(b) {
     boardEdit = b;
@@ -983,6 +1088,8 @@
     $("#stScanAudio").checked = settings.scan.audio; $("#stScanTouch").checked = settings.scan.touch;
     $("#stMode").value = settings.sentenceMode; $("#stHold").value = settings.holdMs; $("#stDeb").value = settings.debounceMs;
     $("#stHoldV").textContent = msTxt(settings.holdMs); $("#stDebV").textContent = msTxt(settings.debounceMs);
+    $("#stRelated").checked = settings.showRelated; $("#stFocus").checked = settings.focusMode;
+    $("#stFocusInfo").textContent = focusCount() ? `${focusCount()} palavras marcadas em foco.` : "Nenhuma palavra em foco ainda. No modo edição, use “Marcar foco” e toque nas palavras da semana.";
     $("#stShowGame").checked = settings.showGame; $("#stSide").checked = settings.showSide; $("#stShowFind").checked = settings.showFind; $("#stShowFT").checked = settings.showFT; $("#stLog").checked = settings.logUsage;
     $("#stPinState").textContent = settings.pin ? "PIN ativo. Ele é pedido para abrir as configurações." : "Sem PIN: qualquer pessoa pode editar. Recomendado definir um PIN.";
     $("#stPin").textContent = settings.pin ? "Trocar PIN" : "Definir PIN";
@@ -1009,6 +1116,8 @@
   bind("#stShowFind", "change", (t) => (settings.showFind = t.checked));
   bind("#stSide", "change", (t) => (settings.showSide = t.checked));
   bind("#stShowGame", "change", (t) => (settings.showGame = t.checked));
+  bind("#stRelated", "change", (t) => (settings.showRelated = t.checked));
+  bind("#stFocus", "change", (t) => (settings.focusMode = t.checked));
   bind("#stShowFT", "change", (t) => (settings.showFT = t.checked));
   bind("#stLog", "change", (t) => (settings.logUsage = t.checked));
   $("#stReport").onclick = openReport;
@@ -1050,6 +1159,7 @@
       const o = { id: bt.id, label: bt.label, background_color: hexToRgb(bt.bg), border_color: "rgb(140, 151, 164)" };
       if (bt.vocalization) o.vocalization = bt.vocalization;
       if (bt.hidden) o.hidden = true;
+      if (bt.focus) o.ext_fala_focus = true;
       if (bt.sound) { const sid = "snd_" + hash(bt.sound); o.sound_id = sid; sounds.push({ id: sid, data: bt.sound, content_type: bt.sound.slice(5, bt.sound.indexOf(";")) }); }
       if (bt.loadBoard) o.load_board = { id: bt.loadBoard, path: `boards/${bt.loadBoard}.obf` };
       if (bt.image && !isEmoji(bt.image)) { const im = imgRef(bt.image, bt); if (im) { images.push(im); o.image_id = im.id; } }
@@ -1129,6 +1239,7 @@
       const bt = { id: String(o.id ?? uid()), label: o.label || "", bg: rgbToHex(o.background_color), cat: "subst" };
       if (o.vocalization) bt.vocalization = o.vocalization;
       if (o.hidden) bt.hidden = true;
+      if (o.ext_fala_focus) bt.focus = true;
       if (o.sound_id && snds[o.sound_id] && /^data:/.test(snds[o.sound_id].data || "")) bt.sound = snds[o.sound_id].data;
       if (o.load_board && (o.load_board.id || o.load_board.path)) { bt.loadBoard = o.load_board.id ? idMap(String(o.load_board.id)) : null; bt._loadPath = o.load_board.path; bt.cat = "pasta"; }
       if (o.ext_fala_emoji) bt.image = "emoji:" + o.ext_fala_emoji;

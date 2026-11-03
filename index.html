@@ -252,6 +252,30 @@ dialog::backdrop { background: rgba(10, 16, 24, .55); }
 .confetti i { position: absolute; top: -20px; width: 10px; height: 14px; border-radius: 2px; animation: fall 1.4s ease-in forwards; }
 @keyframes fall { to { transform: translateY(105vh) rotate(540deg); opacity: .9; } }
 @media (prefers-reduced-motion: reduce) { .confetti { display: none; } .game .it.no, .game .it.help { animation: none; } }
+/* Modo foco, palavras relacionadas, dicas */
+.cell.focus-on { box-shadow: 0 0 0 4px var(--focus), 0 6px 16px rgba(0,0,0,.18) !important; z-index: 1; }
+.cell.focus-on::before { content: "★"; position: absolute; top: 4px; left: 8px; font-size: .9rem; color: var(--focus); text-shadow: 0 0 2px #fff; }
+.focus-mode .cell:not(.focus-on):not(.empty) { opacity: .32; filter: saturate(.4); }
+.editing .cell.focus-on::before { content: "★ foco"; font-weight: 700; font-size: .7rem; }
+.editbar button.marking { background: var(--focus); color: #fff; }
+/* flutua sobre a prancha para não empurrar os quadros (o lugar das palavras não muda) */
+.related { position: fixed; z-index: 30; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); max-width: calc(100vw - 24px);
+  display: flex; gap: 6px; align-items: center; overflow-x: auto; scrollbar-width: none; padding: 8px 10px; border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: 0 10px 34px rgba(0,0,0,.22), 0 0 0 .5px var(--hair); }
+.related::-webkit-scrollbar { display: none; }
+.related .rt { flex: 0 0 auto; font-size: .78rem; font-weight: 600; color: var(--muted); padding-right: 2px; }
+.related button { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; border: none; border-radius: 12px; padding: 6px 12px 6px 6px; color: #1C1C1E; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.1); max-width: 180px; }
+.related button img, .related button .emo { width: 40px; height: 40px; object-fit: contain; font-size: 32px; line-height: 40px; text-align: center; }
+.related button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.related .x { background: var(--fill); color: var(--muted); padding: 6px 10px; box-shadow: none; }
+.tips { display: flex; flex-direction: column; gap: 12px; }
+.tip { background: var(--surface); border-radius: 12px; padding: 12px 14px; }
+.tip h4 { margin: 0 0 6px; font-size: 1rem; }
+.tip p, .tip li { margin: 0; line-height: 1.45; font-size: .93rem; }
+.tip ul { margin: 4px 0 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 4px; }
+.tip .ex { margin-top: 6px; font-size: .85rem; color: var(--muted); }
+.aiprompt { background: var(--surface); border-radius: 10px; padding: 10px 12px; font-size: .92rem; line-height: 1.4; -webkit-user-select: all; user-select: all; box-shadow: 0 0 0 .5px var(--hair); }
 /* Ocultos, segurar para ativar, destaque da busca */
 .cell.is-hidden { opacity: .35; }
 .cell.is-hidden::after { content: "oculto"; position: absolute; top: 6px; left: 6px; font-size: .7rem; font-weight: 700; background: var(--ink); color: var(--bg); padding: 2px 6px; border-radius: 6px; }
@@ -414,10 +438,12 @@ input[type=range] { accent-color: var(--accent); }
   <div class="editbar" id="editbar" hidden>
     <strong>Modo edição: toque em um quadro para editar ou em “+ Quadro” para adicionar</strong>
     <button class="primary" id="btnAddBtn">+ Quadro</button>
+    <button id="btnMarkFocus">Marcar foco</button>
     <button id="btnBoardProps">Prancha</button>
     <button id="btnNewBoard">Nova prancha</button>
     <button class="primary" id="btnDoneEdit">Concluir</button>
   </div>
+  <div class="related" id="related" hidden aria-label="Palavras relacionadas"></div>
   <div class="main">
     <nav class="side" id="side" aria-label="Pastas"></nav>
     <div class="grid" id="grid" role="grid" aria-label="Prancha de comunicação"></div>
@@ -452,6 +478,7 @@ input[type=range] { accent-color: var(--accent); }
         <button type="button" class="btn small" id="dbReal">Foto real (internet)</button>
         <button type="button" class="btn small" id="dbAra">ARASAAC (online)</button>
         <button type="button" class="btn small" id="dbEmoji">Emoji</button>
+        <button type="button" class="btn small" id="dbAI">Criar com IA</button>
         <button type="button" class="btn small" id="dbNoImg">Sem imagem</button>
       </div>
     </div>
@@ -471,6 +498,7 @@ input[type=range] { accent-color: var(--accent); }
         <span class="note" id="dbRecMsg"></span>
       </div>
     </div>
+    <div class="toggle"><label for="dbFocus">Palavra em foco (destacar no Modo foco)</label><input type="checkbox" id="dbFocus"></div>
     <div class="toggle"><label for="dbHidden">Ocultar este quadro por enquanto (o lugar fica guardado)</label><input type="checkbox" id="dbHidden"></div>
   </div>
   <footer>
@@ -550,6 +578,7 @@ input[type=range] { accent-color: var(--accent); }
   <div class="body">
     <div class="row">
       <button class="btn primary" id="stEdit">Editar pranchas</button>
+      <button class="btn" id="stTips">Dicas para pais</button>
       <button class="btn" id="stBoards">Todas as pranchas</button>
     </div>
 
@@ -559,6 +588,9 @@ input[type=range] { accent-color: var(--accent); }
       <div class="toggle"><label for="stRate">Velocidade</label><input type="range" id="stRate" min="0.5" max="1.6" step="0.1"></div>
       <div class="toggle"><label for="stPitch">Tom</label><input type="range" id="stPitch" min="0.5" max="1.8" step="0.1"></div>
       <div class="toggle"><label for="stTap">Falar cada palavra ao tocar</label><input type="checkbox" id="stTap"></div>
+      <div class="toggle"><label for="stRelated">Mostrar palavras relacionadas depois de tocar</label><input type="checkbox" id="stRelated"></div>
+      <div class="toggle"><label for="stFocus">Modo foco: destacar as palavras em foco</label><input type="checkbox" id="stFocus"></div>
+      <p class="note" id="stFocusInfo"></p>
       <button class="btn small" id="stTest">Testar voz</button>
     </div>
 
@@ -696,6 +728,39 @@ input[type=range] { accent-color: var(--accent); }
     <div class="big" id="gEndStars"></div>
     <p class="note" id="gEndTxt"></p>
     <div class="row"><button type="button" class="btn" id="gClose2">Sair</button><button type="button" class="btn primary" id="gAgain">Jogar de novo</button></div>
+  </div>
+</div></dialog>
+
+<!-- Dicas para pais e terapeutas -->
+<dialog id="dlgTips"><div class="dlg">
+  <header><h2>Dicas para pais e terapeutas</h2><button type="button" class="btn ghost" data-close>Fechar</button></header>
+  <div class="body"><div class="tips">
+    <div class="tip"><h4>1. Fale usando o app (modelagem)</h4><p>Enquanto conversa com a criança, toque nas palavras principais. Ela aprende vendo você usar, assim como aprendemos a falar ouvindo.</p><p class="ex">Ex.: diga “vamos <b>comer</b>?” tocando em <b>comer</b>.</p></div>
+    <div class="tip"><h4>2. Comece com poucas palavras muito úteis</h4><ul><li><b>quero, mais, acabou, não, ajuda, parar</b> funcionam em qualquer situação.</li><li>Use <b>Ocultar</b> ou o <b>Modo foco</b> para não sobrecarregar. As palavras continuam no mesmo lugar.</li></ul></div>
+    <div class="tip"><h4>3. Espere</h4><p>Depois de perguntar, conte até 10 em silêncio antes de ajudar. Muitas crianças precisam de mais tempo para responder.</p></div>
+    <div class="tip"><h4>4. Não teste, converse</h4><p>Evite “mostra o gato”, “onde está…?” o tempo todo. Prefira comentar e oferecer escolhas: “quer <b>suco</b> ou <b>água</b>?”.</p></div>
+    <div class="tip"><h4>5. Aumente uma palavra</h4><p>Se a criança toca <b>bola</b>, responda tocando <b>quero bola</b> ou <b>mais bola</b>.</p></div>
+    <div class="tip"><h4>6. Use nas rotinas do dia</h4><ul><li><b>Lanche:</b> quero, mais, acabou, gosto, não gosto.</li><li><b>Banho:</b> água, quente, frio, molhado, acabou.</li><li><b>Brincadeira:</b> de novo, minha vez, sua vez, parar, ajuda.</li><li><b>Saída:</b> ir, carro, parque, casa, tchau.</li></ul></div>
+    <div class="tip"><h4>7. Todo toque vale</h4><p>Responda a cada mensagem, mesmo que pareça “errada” ou repetida. Ela está experimentando o poder de se comunicar. Nunca retire o app como castigo: é a voz da criança.</p></div>
+    <div class="tip"><h4>8. Deixe sempre por perto</h4><p>Tablet carregado e ao alcance em casa, na escola e no passeio. Ative a fixação de tela (Acesso Guiado no iPad) para ela não sair do app.</p></div>
+    <div class="tip"><h4>Recursos do Fala Junto que ajudam</h4><ul><li><b>Modo foco:</b> destaca as palavras da semana.</li><li><b>Encontrar palavra</b> (lupa): mostra o caminho até a palavra.</li><li><b>Primeiro → Depois:</b> ajuda nas transições.</li><li><b>Jogar “Cadê?”:</b> treina procurar e apontar brincando.</li><li><b>Relatório de uso:</b> mostra as palavras mais usadas para levar à fono.</li></ul></div>
+    <p class="note">Estas dicas seguem práticas conhecidas de Comunicação Alternativa. Elas não substituem o acompanhamento com fonoaudiólogo.</p>
+  </div></div>
+</div></dialog>
+
+<!-- Criar figura com IA (guia) -->
+<dialog id="dlgAI"><div class="dlg">
+  <header><h2>Criar figura com IA</h2><button type="button" class="btn ghost" data-close>Fechar</button></header>
+  <div class="body">
+    <p class="note">Crie a figura num app de IA, salve na galeria e depois escolha aqui. Os apps abaixo têm opção gratuita.</p>
+    <div class="field"><label for="aiWhat">O que desenhar</label><input type="text" id="aiWhat" autocomplete="off" placeholder="ex.: pão de queijo"></div>
+    <div class="field"><span class="lbltxt">Texto para colar no app de IA</span><div class="aiprompt" id="aiPrompt"></div>
+      <div class="row"><button type="button" class="btn small" id="aiCopy">Copiar texto</button></div></div>
+    <div class="tip"><h4>Onde criar</h4><ul>
+      <li><b>iPad ou iPhone com Apple Intelligence:</b> app <b>Image Playground</b> → cole o texto → escolha o estilo <b>Ilustração</b> → salve em Fotos.</li>
+      <li><b>ChatGPT</b> ou <b>Gemini</b> (app ou site): cole o texto, peça a imagem e salve-a.</li>
+    </ul></div>
+    <div class="row"><label class="btn primary" for="aiPick">Escolher a figura criada</label><input type="file" id="aiPick" accept="image/*" hidden></div>
   </div>
 </div></dialog>
 

@@ -7,6 +7,10 @@ Prancha de Comunicação Aumentativa e Alternativa (CAA) gratuita, de código ab
 - **Vocabulário pronto:** prancha inicial com 45 quadros e 15 pastas (Pessoas, Comida, Bebidas, Sentimentos, Brincar, Lugares, Corpo, Rotina, Ações, Perguntas, Conversa, Descrever, Objetos, Cores e Números), com cerca de 825 quadros no total.
 - **Pasta Objetos:** 300 objetos coloridos em 10 pranchas (animais, frutas, casa, brinquedos, transportes, roupas, natureza, escola…), para procurar e apontar.
 - **Jogo “Cadê?”:** o app pergunta em voz alta e a criança toca na figura certa, com comemoração no acerto, dica depois de 2 erros e dificuldade ajustável (4 a 30 figuras).
+- **Modo foco:** destaca as palavras que estão sendo ensinadas, sem esconder o resto.
+- **Palavras relacionadas:** depois de um toque, sugere palavras ligadas (ex.: comer → com fome, mais, acabou) para montar frases mais rápido.
+- **Dicas para pais e terapeutas:** guia curto de modelagem e uso nas rotinas, dentro do app.
+- **Criar figura com IA:** texto pronto para o Image Playground (Apple), ChatGPT ou Gemini; a figura criada é escolhida da galeria.
 - **Menu lateral fixo** com as pastas, para chegar a qualquer tema com um toque.
 - **Cores por tipo de palavra** (chave Fitzgerald modificada): pessoas em amarelo, ações em verde, descrição em azul, social em rosa, "não"/urgente em vermelho, perguntas em roxo, coisas em laranja e pastas em cinza.
 - **Frase e voz:** o usuário monta a frase tocando nos quadros, e o app fala usando a voz em português do próprio aparelho, com velocidade e tom ajustáveis.

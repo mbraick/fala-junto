@@ -1,5 +1,5 @@
 // Service worker: deixa o app funcionando sem internet
-const CACHE = "fala-junto-84a2d9a1";
+const CACHE = "fala-junto-2a8a417b";
 const FILES = [
  "./",
  "index.html",
