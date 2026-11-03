@@ -528,7 +528,7 @@ input[type=range] { accent-color: var(--accent); }
     </div>
     <p class="note" id="bdMsg"></p>
   </div>
-  <footer><button type="button" class="btn danger" id="bdDelete">Excluir prancha</button><button type="submit" class="btn primary">Salvar</button></footer>
+  <footer><button type="button" class="btn danger" id="bdDelete">Excluir prancha</button><button type="button" class="btn" id="bdSort">Organizar por tipo de palavra</button><button type="submit" class="btn primary">Salvar</button></footer>
 </form></dialog>
 
 <!-- PIN -->
@@ -619,6 +619,8 @@ input[type=range] { accent-color: var(--accent); }
       <input type="file" id="stImport" hidden>
     </div>
     <p class="note">Formato Open Board, compatível com CoughDrop, LibreAAC e outros apps de CAA.</p>
+    <div class="row"><button class="btn" id="stSortAll">Organizar todas as pranchas por tipo de palavra</button></div>
+    <p class="note">Agrupa os quadros pela cor: pessoas, ações, descrição, coisas, social, “não”/urgente, perguntas e, por último, as pastas. A ordem dentro de cada grupo é mantida.</p>
     <div class="row"><button class="btn danger" id="stReset">Restaurar pranchas padrão</button></div>
 
     <div class="row"><button class="btn" id="stInstall">Instalar o app neste aparelho</button><button class="btn" id="stUpdate">Procurar atualização</button></div>

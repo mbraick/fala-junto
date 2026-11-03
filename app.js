@@ -926,6 +926,29 @@
     Object.assign(b, { name, cols, rows, grid: ng });
     save(); $("#dlgBoard").close(); render();
   });
+  /* Organizar por tipo de palavra (chave Fitzgerald) */
+  const CAT_ORDER = ["pessoa", "verbo", "descr", "subst", "social", "neg", "perg", "pasta"];
+  function catOf(bt) {
+    if (bt.loadBoard) return "pasta";
+    const bg = (bt.bg || "").toUpperCase();
+    const byColor = Object.keys(COLORS).find((k) => COLORS[k].toUpperCase() === bg);
+    return byColor || (CAT_ORDER.includes(bt.cat) ? bt.cat : "subst");
+  }
+  function sortBoard(b) {
+    // lê os quadros na ordem em que aparecem (linha por linha) e reordena de forma estável por tipo
+    const seq = [];
+    b.grid.forEach((row) => row.forEach((id) => { if (id && btnById(b, id)) seq.push(btnById(b, id)); }));
+    const sorted = seq.map((bt, i) => ({ bt, i })).sort((x, y) => (CAT_ORDER.indexOf(catOf(x.bt)) - CAT_ORDER.indexOf(catOf(y.bt))) || (x.i - y.i)).map((x) => x.bt);
+    const need = Math.ceil(sorted.length / b.cols);
+    if (need > b.rows) { for (let r = b.rows; r < need; r++) b.grid.push(Array(b.cols).fill(null)); b.rows = need; }
+    b.grid = Array.from({ length: b.rows }, (_, r) => Array.from({ length: b.cols }, (_, c) => (sorted[r * b.cols + c] ? sorted[r * b.cols + c].id : null)));
+  }
+  $("#bdSort").onclick = async () => {
+    const b = boardEdit || board();
+    const ok = await confirmBox("Organizar por tipo de palavra", `Os quadros de “${b.name}” serão agrupados por cor (tipo de palavra). Os quadros mudam de lugar, mas nenhum é apagado.`, "Organizar");
+    if (!ok) return;
+    sortBoard(b); save(); $("#dlgBoard").close(); render(); toast("Prancha organizada por tipo de palavra.");
+  };
   $("#bdDelete").onclick = async () => {
     const b = boardEdit;
     const ok = await confirmBox("Excluir prancha", `Excluir a prancha “${b.name}” e todos os seus quadros? Pastas que abriam essa prancha passam a só falar.`, "Excluir");
@@ -994,6 +1017,11 @@
   $("#stEdit").onclick = () => { $("#dlgSettings").close(); editing = true; render(); };
   $("#stBoards").onclick = openBoardList;
   $("#stPin").onclick = async () => { await askPin("new"); $("#stPinState").textContent = settings.pin ? "PIN ativo. Ele é pedido para abrir as configurações." : "Sem PIN: qualquer pessoa pode editar."; $("#stPin").textContent = settings.pin ? "Trocar PIN" : "Definir PIN"; };
+  $("#stSortAll").onclick = async () => {
+    const ok = await confirmBox("Organizar todas as pranchas", "Todas as pranchas serão agrupadas por tipo de palavra (cor). Os quadros mudam de lugar, mas nenhum é apagado. Se quiser, exporte um backup antes.", "Organizar");
+    if (!ok) return;
+    Object.values(set.boards).forEach(sortBoard); save(); render(); toast("Todas as pranchas foram organizadas.");
+  };
   $("#stReset").onclick = async () => {
     const ok = await confirmBox("Restaurar pranchas padrão", "Todas as pranchas e quadros que você criou ou editou serão apagados e o vocabulário original volta. Faça um backup (.obz) antes se quiser guardar.", "Restaurar");
     if (!ok) return;
