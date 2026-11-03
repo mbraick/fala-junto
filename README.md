@@ -90,7 +90,7 @@ python3 -m http.server 8080
 | `index.html` | Interface e estilos |
 | `app.js` | Lógica: grade, voz, edição, varredura, OBF/OBZ, armazenamento |
 | `data.js` | Vocabulário padrão e índice da biblioteca de símbolos |
-| `sym/` | Símbolos SVG (Mulberry `m-*` e OpenMoji `e-*`) |
+| `symbols.js` | Símbolos SVG embutidos (Mulberry `m-*` e OpenMoji `e-*`) |
 | `sw.js` | Service worker (offline) |
 | `manifest.webmanifest`, `icon-*.png` | Instalação como app |
 | `jszip.min.js` | Leitura e gravação de arquivos .obz |
@@ -98,8 +98,8 @@ python3 -m http.server 8080
 ## Licenças
 
 - **Código do app:** MIT (veja `LICENSE`).
-- **Símbolos Mulberry** (`sym/m-*.svg`): © Steve Lee, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), [mulberrysymbols.org](https://mulberrysymbols.org).
-- **OpenMoji** (`sym/e-*.svg`): [openmoji.org](https://openmoji.org), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+- **Símbolos Mulberry** (símbolos `m-*` em `symbols.js`): © Steve Lee, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), [mulberrysymbols.org](https://mulberrysymbols.org).
+- **OpenMoji** (símbolos `e-*` em `symbols.js`): [openmoji.org](https://openmoji.org), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 - **ARASAAC** (busca opcional, online): pictogramas de Sergio Palao, propriedade do Governo de Aragão (Espanha), [CC BY-NC-SA](https://creativecommons.org/licenses/by-nc-sa/4.0/). Só podem ser usados sem fins comerciais.
 - **JSZip:** MIT ou GPLv3.
 

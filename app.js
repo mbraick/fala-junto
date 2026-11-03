@@ -110,10 +110,12 @@
 
   /* ---------- Imagem ---------- */
   const isEmoji = (img) => img && img.startsWith("emoji:");
+  // símbolos embutidos podem vir de sym/*.svg ou do pacote symbols.js (versão de arquivo único)
+  const resolveSrc = (p) => (window.FALA_SYM && window.FALA_SYM[p]) || p;
   function picEl(img, cls = "") {
     if (!img) return null;
     if (isEmoji(img)) { const s = document.createElement("span"); s.className = "emo " + cls; s.textContent = img.slice(6); return s; }
-    const i = document.createElement("img"); i.src = img; i.alt = ""; i.loading = "lazy"; i.decoding = "async"; if (cls) i.className = cls; return i;
+    const i = document.createElement("img"); i.src = resolveSrc(img); i.alt = ""; i.loading = "lazy"; i.decoding = "async"; if (cls) i.className = cls; return i;
   }
 
   /* ---------- Renderização ---------- */
@@ -791,7 +793,9 @@
   }
   async function imageData(src) { // -> {data, content_type}
     if (src.startsWith("data:")) return { data: src, content_type: src.slice(5, src.indexOf(";")) };
-    const blob = await (await fetch(src)).blob();
+    const r = resolveSrc(src);
+    if (r.startsWith("data:")) return { data: r, content_type: r.slice(5, r.indexOf(r.includes(";") ? ";" : ",")) };
+    const blob = await (await fetch(r)).blob();
     const data = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
     return { data, content_type: blob.type || (src.endsWith(".svg") ? "image/svg+xml" : "image/png") };
   }

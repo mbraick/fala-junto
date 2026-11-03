@@ -21,6 +21,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ---
-Symbols in sym/m-*.svg: Mulberry Symbols, (c) Steve Lee, CC BY-SA 4.0.
-Symbols in sym/e-*.svg: OpenMoji, CC BY-SA 4.0.
+Symbols m-* in symbols.js: Mulberry Symbols, (c) Steve Lee, CC BY-SA 4.0.
+Symbols e-* in symbols.js: OpenMoji, CC BY-SA 4.0.
 These symbol files are NOT covered by the MIT license above.
