@@ -219,6 +219,35 @@ dialog::backdrop { background: rgba(10, 16, 24, .55); }
 .install .arrow.down { bottom: calc(2px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); }
 @keyframes bob { 50% { translate: 0 8px; } }
 @media (prefers-reduced-motion: reduce) { .install .arrow { animation: none; } }
+/* Jogo Cadê? */
+#dlgGame { width: 100vw; height: 100%; max-width: 100vw; max-height: 100%; margin: 0; border-radius: 0; padding: 0; background: var(--bg); }
+#dlgGame::backdrop { background: var(--bg); }
+.game { height: 100%; display: flex; flex-direction: column; gap: 10px; padding-block: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-bottom, 0px)); padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+.game .top { display: flex; align-items: center; gap: 10px; }
+.game .ask { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 12px; background: var(--surface); border: 2px solid var(--line); border-radius: 16px; padding: 6px 12px; min-height: 64px; }
+.game .ask .q { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.3rem, 3.2vw, 2.2rem); text-align: center; }
+.game .ask .hint { width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; }
+.game .ask .hint img { max-width: 100%; max-height: 100%; }
+.game .ask .hint .emo { font-size: 42px; }
+.game .stars { font-size: 1.4rem; font-weight: 700; min-width: 4.5rem; text-align: right; font-variant-numeric: tabular-nums; }
+.game .field-g { flex: 1; min-height: 0; display: grid; gap: 8px; }
+.game .it { position: relative; border-radius: 16px; border: 2px solid var(--line); background: #fff; color: #16202B; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px; min-width: 0; min-height: 0; overflow: hidden; container-type: size; transition: transform .12s ease; }
+.game .it .pv { flex: 1; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
+.game .it img { max-width: 92%; max-height: 92%; object-fit: contain; pointer-events: none; }
+.game .it .emo { font-size: 55cqmin; line-height: 1; }
+.game .it .nm { font-weight: 700; font-size: clamp(.7rem, 1.6vw, 1rem); }
+.game .it.ok { border-color: #1E8E3E; box-shadow: 0 0 0 5px rgba(30,142,62,.35); transform: scale(1.06); z-index: 2; }
+.game .it.no { animation: shake .4s ease; }
+.game .it.help { animation: pulse 0.8s ease-in-out infinite; border-color: var(--focus); box-shadow: 0 0 0 5px color-mix(in srgb, var(--focus) 45%, transparent); }
+@keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.game .setup { max-width: 560px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; background: var(--surface); border-radius: 18px; padding: 18px; border: 1px solid var(--line); overflow-y: auto; }
+.game .setup h2, .game .end h2 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 1.6rem; }
+.game .end { margin: auto; text-align: center; display: flex; flex-direction: column; gap: 14px; align-items: center; background: var(--surface); border-radius: 18px; padding: 24px; border: 1px solid var(--line); }
+.game .end .big { font-size: 3.2rem; letter-spacing: .1em; }
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; overflow: hidden; }
+.confetti i { position: absolute; top: -20px; width: 10px; height: 14px; border-radius: 2px; animation: fall 1.4s ease-in forwards; }
+@keyframes fall { to { transform: translateY(105vh) rotate(540deg); opacity: .9; } }
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } .game .it.no, .game .it.help { animation: none; } }
 /* Ocultos, segurar para ativar, destaque da busca */
 .cell.is-hidden { opacity: .35; }
 .cell.is-hidden::after { content: "oculto"; position: absolute; top: 6px; left: 6px; font-size: .7rem; font-weight: 700; background: var(--ink); color: var(--bg); padding: 2px 6px; border-radius: 6px; }
@@ -272,6 +301,7 @@ dialog::backdrop { background: rgba(10, 16, 24, .55); }
     <button class="navb" id="btnUp" data-scan="tool" aria-label="Voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span class="t">Voltar</span></button>
     <div class="title" id="boardTitle">Início</div>
     <button class="navb icon" id="btnFind" aria-label="Encontrar uma palavra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></button>
+    <button class="navb icon" id="btnGame" aria-label="Jogo Cadê?"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg></button>
     <button class="navb icon" id="btnFT" aria-label="Primeiro e depois"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="7.5" height="12" rx="1.5"/><rect x="14" y="6" width="7.5" height="12" rx="1.5"/><path d="M10.8 12h2.4"/></svg></button>
     <button class="navb gear" id="btnSettings" data-noswitch aria-label="Configurações (segure para abrir durante a varredura)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   </div>
@@ -445,6 +475,7 @@ dialog::backdrop { background: rgba(10, 16, 24, .55); }
       <div class="toggle"><label for="stFont">Tamanho do texto</label><input type="range" id="stFont" min="0.8" max="1.6" step="0.1"></div>
       <div class="toggle"><label for="stSide">Mostrar menu lateral de pastas</label><input type="checkbox" id="stSide"></div>
       <div class="toggle"><label for="stShowFind">Mostrar botão “Encontrar palavra”</label><input type="checkbox" id="stShowFind"></div>
+      <div class="toggle"><label for="stShowGame">Mostrar botão do jogo “Cadê?”</label><input type="checkbox" id="stShowGame"></div>
       <div class="toggle"><label for="stShowFT">Mostrar botão “Primeiro / Depois”</label><input type="checkbox" id="stShowFT"></div>
     </div>
 
@@ -528,6 +559,36 @@ dialog::backdrop { background: rgba(10, 16, 24, .55); }
   <header><h2>Relatório de uso</h2><button type="button" class="btn ghost" data-close>Fechar</button></header>
   <div class="body" id="repBody"></div>
   <footer><button type="button" class="btn danger" id="repClear">Apagar registros</button><button type="button" class="btn primary" id="repCsv">Exportar planilha (.csv)</button></footer>
+</div></dialog>
+
+<!-- Jogo Cadê? -->
+<dialog id="dlgGame"><div class="game" id="game">
+  <div class="setup" id="gSetup">
+    <h2>Jogo “Cadê?”</h2>
+    <p class="note">O app pergunta “Cadê…?” e a criança procura e toca na figura certa, como no jogo Lince.</p>
+    <div class="field"><label for="gBoard">Figuras de qual prancha</label><select id="gBoard"></select></div>
+    <div class="field"><label for="gCount">Quantas figuras na tela</label>
+      <select id="gCount"><option value="4">4 (bem fácil)</option><option value="6">6</option><option value="9">9</option><option value="12">12</option><option value="16">16</option><option value="20">20</option><option value="30">30 (como o Lince)</option></select></div>
+    <div class="field"><label for="gRounds">Rodadas</label>
+      <select id="gRounds"><option value="5">5</option><option value="10">10</option><option value="15">15</option><option value="20">20</option></select></div>
+    <div class="toggle"><label for="gShowHint">Mostrar a figura junto com a pergunta (mais fácil)</label><input type="checkbox" id="gShowHint"></div>
+    <div class="toggle"><label for="gShowNames">Mostrar o nome embaixo das figuras</label><input type="checkbox" id="gShowNames"></div>
+    <div class="toggle"><label for="gShuffle">Mudar as figuras de lugar a cada rodada</label><input type="checkbox" id="gShuffle"></div>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="btn" id="gClose1">Voltar</button><button type="button" class="btn primary" id="gStart">Começar</button></div>
+  </div>
+  <div class="top" id="gTop" hidden>
+    <button type="button" class="btn" id="gExit" aria-label="Sair do jogo">Sair</button>
+    <div class="ask" role="button" tabindex="0" id="gAsk" aria-label="Repetir a pergunta"><span class="hint" id="gHint"></span><span class="q" id="gQ"></span>
+      <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg></div>
+    <div class="stars" id="gStars" aria-live="polite"></div>
+  </div>
+  <div class="field-g" id="gField" hidden></div>
+  <div class="end" id="gEnd" hidden>
+    <h2 id="gEndT">Parabéns!</h2>
+    <div class="big" id="gEndStars"></div>
+    <p class="note" id="gEndTxt"></p>
+    <div class="row"><button type="button" class="btn" id="gClose2">Sair</button><button type="button" class="btn primary" id="gAgain">Jogar de novo</button></div>
+  </div>
 </div></dialog>
 
 <!-- Lista de pranchas -->

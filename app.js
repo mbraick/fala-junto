@@ -53,7 +53,7 @@
   const DEFAULT_SETTINGS = {
     voiceURI: "", rate: 0.95, pitch: 1.1, speakOnTap: true, showLabels: true, showPics: true, fontScale: 1,
     pin: "", scan: { enabled: false, mode: "auto", interval: 1500, audio: false, touch: true },
-    showSide: true, sentenceMode: "frase", holdMs: 0, debounceMs: 0, showFind: true, showFT: true, logUsage: false,
+    showSide: true, showGame: true, game: { board: "", count: 9, rounds: 10, hint: false, names: false, shuffle: true }, sentenceMode: "frase", holdMs: 0, debounceMs: 0, showFind: true, showFT: true, logUsage: false,
     ft: { a: { image: "sym/m-wash-hands-to.svg", label: "lavar as mãos" }, b: { image: "sym/m-play-to.svg", label: "brincar" }, done: false },
   };
   let set = null;       // { version, root, boards: {id: board} }
@@ -175,6 +175,7 @@
     renderSide();
     $("#btnFind").hidden = !settings.showFind;
     $("#btnFT").hidden = !settings.showFT;
+    $("#btnGame").hidden = !settings.showGame;
     scan.rebuild();
   }
   /* Menu lateral fixo: Início + pastas da prancha inicial */
@@ -655,6 +656,142 @@
   $("#ftPickA").onclick = ftPick("a");
   $("#ftPickB").onclick = ftPick("b");
 
+
+  /* ---------- Jogo "Cadê?" (estilo Lince) ---------- */
+  const game = (() => {
+    let pool = [], shown = [], target = null, round = 0, stars = 0, misses = 0, firstTry = 0, busy = false, helpT = null;
+    const cfg = () => settings.game;
+    function itemsOf(boardIds) {
+      const seen = new Set(), out = [];
+      boardIds.forEach((id) => { const b = set.boards[id]; if (!b) return; b.buttons.forEach((bt) => {
+        if (bt.loadBoard || bt.hidden || !bt.image || !bt.label) return;
+        const k = norm(bt.label); if (seen.has(k)) return; seen.add(k);
+        out.push({ label: bt.label, image: bt.image, say: bt.label });
+      }); });
+      return out;
+    }
+    function boardOptions() {
+      const opts = [];
+      const hub = set.boards["objetos"];
+      if (hub) {
+        const subs = hub.buttons.filter((b) => b.loadBoard && set.boards[b.loadBoard]).map((b) => b.loadBoard);
+        if (subs.length) opts.push({ v: "objetos*", t: "Todos os objetos", ids: subs });
+      }
+      Object.values(set.boards).sort((a, b) => a.name.localeCompare(b.name)).forEach((b) => {
+        const n = itemsOf([b.id]).length; if (n >= 4) opts.push({ v: b.id, t: `${b.name} (${n})`, ids: [b.id] });
+      });
+      return opts;
+    }
+    function openSetup() {
+      const sel = $("#gBoard"); sel.innerHTML = "";
+      const opts = boardOptions();
+      opts.forEach((o) => { const e = document.createElement("option"); e.value = o.v; e.textContent = o.t; sel.appendChild(e); });
+      const cur = board().id;
+      sel.value = opts.some((o) => o.v === cfg().board) ? cfg().board : opts.some((o) => o.v === cur) ? cur : (opts[0] && opts[0].v) || "";
+      $("#gCount").value = cfg().count; $("#gRounds").value = cfg().rounds;
+      $("#gShowHint").checked = cfg().hint; $("#gShowNames").checked = cfg().names; $("#gShuffle").checked = cfg().shuffle;
+      show("setup");
+      if (!$("#dlgGame").open) $("#dlgGame").showModal();
+      if (!opts.length) toast("Nenhuma prancha tem figuras suficientes (mínimo 4 com imagem).");
+    }
+    function show(which) {
+      $("#gSetup").hidden = which !== "setup"; $("#gEnd").hidden = which !== "end";
+      $("#gTop").hidden = which !== "play"; $("#gField").hidden = which !== "play";
+    }
+    const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    function start() {
+      const c = cfg();
+      c.board = $("#gBoard").value; c.count = +$("#gCount").value; c.rounds = +$("#gRounds").value;
+      c.hint = $("#gShowHint").checked; c.names = $("#gShowNames").checked; c.shuffle = $("#gShuffle").checked; save();
+      const opt = boardOptions().find((o) => o.v === c.board);
+      pool = opt ? itemsOf(opt.ids) : [];
+      if (pool.length < 4) { toast("Escolha uma prancha com pelo menos 4 figuras."); return; }
+      round = 0; stars = 0; firstTry = 0;
+      shown = shuffle(pool).slice(0, Math.min(c.count, pool.length));
+      show("play"); layout(); next();
+    }
+    function layout() {
+      const f = $("#gField"), n = shown.length;
+      const W = f.clientWidth || innerWidth, H = f.clientHeight || innerHeight * 0.75;
+      let best = 1, bestSize = 0;
+      for (let cols = 1; cols <= n; cols++) { const rows = Math.ceil(n / cols); const s = Math.min(W / cols, H / rows); if (s > bestSize) { bestSize = s; best = cols; } }
+      f.style.gridTemplateColumns = `repeat(${best}, minmax(0, 1fr))`;
+      f.style.gridTemplateRows = `repeat(${Math.ceil(n / best)}, minmax(0, 1fr))`;
+      f.innerHTML = "";
+      shown.forEach((it, i) => {
+        const b = document.createElement("button"); b.type = "button"; b.className = "it"; b.dataset.i = i;
+        b.setAttribute("aria-label", it.label);
+        const pv = document.createElement("span"); pv.className = "pv"; const p = picEl(it.image); if (p) pv.appendChild(p); b.appendChild(pv);
+        if (cfg().names) { const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = it.label; b.appendChild(nm); }
+        f.appendChild(b);
+      });
+    }
+    function ask() {
+      speak("Cadê... " + target.say + "?");
+    }
+    function next() {
+      clearTimeout(helpT); misses = 0; busy = false;
+      if (round >= cfg().rounds) return finish();
+      round++;
+      if (cfg().shuffle && round > 1) {
+        // troca algumas figuras por outras do conjunto e embaralha
+        const rest = shuffle(pool.filter((x) => !shown.includes(x)));
+        const k = Math.min(rest.length, Math.ceil(shown.length / 3));
+        shown = shuffle(shuffle(shown).slice(0, shown.length - k).concat(rest.slice(0, k)));
+        layout();
+      }
+      $$("#gField .it").forEach((e) => e.classList.remove("ok", "no", "help"));
+      const choices = shown.filter((x) => x !== target);
+      target = choices[Math.floor(Math.random() * choices.length)] || shown[0];
+      $("#gQ").textContent = "Cadê: " + target.label + "?";
+      const h = $("#gHint"); h.innerHTML = ""; h.hidden = !cfg().hint; if (cfg().hint) { const p = picEl(target.image); if (p) h.appendChild(p); }
+      $("#gStars").textContent = "⭐ " + stars + "  ·  " + round + "/" + cfg().rounds;
+      setTimeout(ask, 300);
+    }
+    function confetti() {
+      const c = document.createElement("div"); c.className = "confetti";
+      const cols = ["#FFE98A", "#BDEBB0", "#BFD9FF", "#FFCCE3", "#FFB8AE", "#DCC8FF", "#FFD7A8", "#1F5FBF"];
+      for (let i = 0; i < 40; i++) { const k = document.createElement("i"); k.style.left = Math.random() * 100 + "vw"; k.style.background = cols[i % cols.length]; k.style.animationDelay = Math.random() * 0.4 + "s"; c.appendChild(k); }
+      $("#dlgGame").appendChild(c); setTimeout(() => c.remove(), 2200);
+    }
+    const PRAISE = ["Muito bem!", "Isso!", "Acertou!", "Parabéns!", "Que legal!", "Boa!"];
+    function tap(el) {
+      if (busy) return;
+      const it = shown[+el.dataset.i]; if (!it) return;
+      if (it === target) {
+        busy = true; clearTimeout(helpT);
+        stars++; if (!misses) firstTry++;
+        el.classList.remove("help"); el.classList.add("ok"); confetti();
+        $("#gStars").textContent = "⭐ " + stars + "  ·  " + round + "/" + cfg().rounds;
+        speak(PRAISE[Math.floor(Math.random() * PRAISE.length)] + " É " + target.say + "!");
+        setTimeout(next, 2200);
+      } else {
+        misses++;
+        el.classList.remove("no"); void el.offsetWidth; el.classList.add("no");
+        speak("Esse é " + it.say + ". Cadê " + target.say + "?");
+        if (misses >= 2) { // dica: a figura certa começa a piscar
+          clearTimeout(helpT);
+          helpT = setTimeout(() => { const i = shown.indexOf(target); const t = $(`#gField .it[data-i="${i}"]`); if (t) t.classList.add("help"); }, 600);
+        }
+      }
+    }
+    function finish() {
+      show("end");
+      $("#gEndStars").textContent = "⭐".repeat(Math.min(stars, 20));
+      $("#gEndTxt").textContent = `${stars} acertos em ${cfg().rounds} rodadas, ${firstTry} de primeira.`;
+      speak("Parabéns! Você ganhou " + stars + " estrelas!");
+    }
+    $("#gField").addEventListener("click", (e) => { const el = e.target.closest(".it"); if (el) tap(el); });
+    $("#gAsk").onclick = () => target && ask();
+    $("#gStart").onclick = start;
+    $("#gAgain").onclick = start;
+    const close = () => { clearTimeout(helpT); if (synth) synth.cancel(); $("#dlgGame").close(); };
+    $("#gExit").onclick = close; $("#gClose1").onclick = close; $("#gClose2").onclick = close;
+    window.addEventListener("resize", () => { if ($("#dlgGame").open && !$("#gField").hidden) { const t = target; layout(); target = t; } });
+    return { open: openSetup };
+  })();
+  $("#btnGame").onclick = () => { if (scan.active()) return; game.open(); };
+
   /* ---------- Encontrar palavra ---------- */
   function pathsFromRoot() { // id -> [ids da raiz até a prancha]
     const paths = { [set.root]: [set.root] }; const q = [set.root];
@@ -823,7 +960,7 @@
     $("#stScanAudio").checked = settings.scan.audio; $("#stScanTouch").checked = settings.scan.touch;
     $("#stMode").value = settings.sentenceMode; $("#stHold").value = settings.holdMs; $("#stDeb").value = settings.debounceMs;
     $("#stHoldV").textContent = msTxt(settings.holdMs); $("#stDebV").textContent = msTxt(settings.debounceMs);
-    $("#stSide").checked = settings.showSide; $("#stShowFind").checked = settings.showFind; $("#stShowFT").checked = settings.showFT; $("#stLog").checked = settings.logUsage;
+    $("#stShowGame").checked = settings.showGame; $("#stSide").checked = settings.showSide; $("#stShowFind").checked = settings.showFind; $("#stShowFT").checked = settings.showFT; $("#stLog").checked = settings.logUsage;
     $("#stPinState").textContent = settings.pin ? "PIN ativo. Ele é pedido para abrir as configurações." : "Sem PIN: qualquer pessoa pode editar. Recomendado definir um PIN.";
     $("#stPin").textContent = settings.pin ? "Trocar PIN" : "Definir PIN";
     showVersion();
@@ -848,6 +985,7 @@
   bind("#stDeb", "input", (t) => { settings.debounceMs = +t.value; $("#stDebV").textContent = msTxt(t.value); });
   bind("#stShowFind", "change", (t) => (settings.showFind = t.checked));
   bind("#stSide", "change", (t) => (settings.showSide = t.checked));
+  bind("#stShowGame", "change", (t) => (settings.showGame = t.checked));
   bind("#stShowFT", "change", (t) => (settings.showFT = t.checked));
   bind("#stLog", "change", (t) => (settings.logUsage = t.checked));
   $("#stReport").onclick = openReport;
@@ -1196,6 +1334,7 @@
     settings = Object.assign(clone(DEFAULT_SETTINGS), settings || {});
     settings.scan = Object.assign(clone(DEFAULT_SETTINGS.scan), settings.scan || {});
     settings.ft = Object.assign(clone(DEFAULT_SETTINGS.ft), settings.ft || {});
+    settings.game = Object.assign(clone(DEFAULT_SETTINGS.game), settings.game || {});
     stack = [set.root];
     applyLook(); loadVoices(); render(); renderStrip();
     install.boot();
