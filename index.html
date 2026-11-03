@@ -552,7 +552,7 @@ input[type=range] { accent-color: var(--accent); }
     <div class="field"><label for="bdName">Nome</label><input type="text" id="bdName" maxlength="40" autocomplete="off"></div>
     <div class="row">
       <div class="field"><label for="bdCols">Colunas</label><input type="number" id="bdCols" min="1" max="10"></div>
-      <div class="field"><label for="bdRows">Linhas</label><input type="number" id="bdRows" min="1" max="30"></div>
+      <div class="field"><label for="bdRows">Linhas</label><input type="number" id="bdRows" min="1" max="60"></div>
     </div>
     <p class="note" id="bdMsg"></p>
   </div>
@@ -651,6 +651,7 @@ input[type=range] { accent-color: var(--accent); }
       <input type="file" id="stImport" hidden>
     </div>
     <p class="note">Formato Open Board, compatível com CoughDrop, LibreAAC e outros apps de CAA.</p>
+    <div class="row"><button class="btn" id="stCols4">Usar 4 colunas em todas as pranchas</button></div>
     <div class="row"><button class="btn" id="stSortAll">Organizar todas as pranchas por tipo de palavra</button></div>
     <p class="note">Agrupa os quadros pela cor: pessoas, ações, descrição, coisas, social, “não”/urgente, perguntas e, por último, as pastas. A ordem dentro de cada grupo é mantida.</p>
     <div class="row"><button class="btn danger" id="stReset">Restaurar pranchas padrão</button></div>

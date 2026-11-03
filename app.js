@@ -139,8 +139,12 @@
       while (showRows > 1 && !(b.grid[showRows - 1] || []).some(visible)) showRows--;
     }
     const cellMin = window.innerWidth <= 560 ? 64 : 84;
+    // altura mínima proporcional à largura do quadro, para ele não ficar achatado quando há poucas colunas
+    const gapPx = parseFloat(getComputedStyle(grid).columnGap) || 6;
+    const colW = ((grid.clientWidth || window.innerWidth) - gapPx * (b.cols - 1)) / b.cols;
+    const rowMin = Math.round(Math.max(cellMin, Math.min(colW * 0.8, 240)));
     grid.style.gridTemplateColumns = `repeat(${b.cols}, minmax(0, 1fr))`;
-    grid.style.gridTemplateRows = `repeat(${showRows}, minmax(${cellMin}px, 1fr))`;
+    grid.style.gridTemplateRows = `repeat(${showRows}, minmax(${rowMin}px, 1fr))`;
     grid.classList.toggle("editing", editing);
     grid.innerHTML = "";
     for (let r = 0; r < showRows; r++) {
@@ -990,10 +994,10 @@
     let pos = null;
     for (let r = 0; r < b.rows && !pos; r++) for (let c = 0; c < b.cols && !pos; c++) if (!b.grid[r][c]) pos = [r, c];
     if (!pos) {
-      // prancha cheia: cria uma linha nova no fim (ou uma coluna, se já tiver 30 linhas)
-      if (b.rows < 30) { b.grid.push(Array(b.cols).fill(null)); b.rows++; pos = [b.rows - 1, 0]; }
+      // prancha cheia: cria uma linha nova no fim (ou uma coluna, se já tiver 60 linhas)
+      if (b.rows < 60) { b.grid.push(Array(b.cols).fill(null)); b.rows++; pos = [b.rows - 1, 0]; }
       else if (b.cols < 10) { b.grid.forEach((row) => row.push(null)); b.cols++; pos = [0, b.cols - 1]; }
-      else { toast("Esta prancha chegou ao limite de 30 linhas × 10 colunas. Crie uma pasta nova para mais palavras."); return; }
+      else { toast("Esta prancha chegou ao limite de 60 linhas × 10 colunas. Crie uma pasta nova para mais palavras."); return; }
       save(); render(); toast("A prancha estava cheia: criei uma linha nova.");
     }
     openButtonEditor(null, pos[0], pos[1]);
@@ -1014,7 +1018,7 @@
     e.preventDefault();
     const name = $("#bdName").value.trim() || "Sem nome";
     const cols = Math.max(1, Math.min(10, +$("#bdCols").value || 4));
-    const rows = Math.max(1, Math.min(30, +$("#bdRows").value || 3));
+    const rows = Math.max(1, Math.min(60, +$("#bdRows").value || 3));
     if (!boardEdit) {
       const nb = newBoard(name, cols, rows);
       stack.push(nb.id); $("#dlgBoard").close(); render(); toast("Prancha criada. Toque nos espaços + para adicionar quadros."); return;
@@ -1023,6 +1027,10 @@
     const ids = []; b.grid.forEach((row) => row.forEach((id) => ids.push(id)));
     const used = ids.filter(Boolean).length;
     if (used > cols * rows) { $("#bdMsg").textContent = `Não cabe: a prancha tem ${used} quadros e o novo tamanho comporta ${cols * rows}. Exclua quadros ou aumente o tamanho.`; return; }
+    if (cols !== b.cols) {
+      // mudou o número de colunas: mantém a ordem de leitura (linha por linha)
+      reflow(b, cols, rows); b.name = name; save(); $("#dlgBoard").close(); render(); return;
+    }
     // mantém posições quando possível; o que sobrar vai para os primeiros espaços livres
     const ng = Array.from({ length: rows }, () => Array(cols).fill(null));
     const left = [];
@@ -1054,6 +1062,14 @@
     if (!ok) return;
     sortBoard(b); save(); $("#dlgBoard").close(); render(); toast("Prancha organizada por tipo de palavra.");
   };
+  // reorganiza a prancha em outro número de colunas, mantendo a ordem de leitura
+  function reflow(b, cols, minRows) {
+    const seq = [];
+    b.grid.forEach((row) => row.forEach((id) => { if (id && btnById(b, id)) seq.push(id); }));
+    const rows = Math.min(60, Math.max(minRows || 1, Math.ceil(seq.length / cols) * 2, 1));
+    b.cols = cols; b.rows = rows;
+    b.grid = Array.from({ length: rows }, (_, r) => Array.from({ length: cols }, (_, c) => seq[r * cols + c] || null));
+  }
   $("#bdDelete").onclick = async () => {
     const b = boardEdit;
     const ok = await confirmBox("Excluir prancha", `Excluir a prancha “${b.name}” e todos os seus quadros? Pastas que abriam essa prancha passam a só falar.`, "Excluir");
@@ -1126,6 +1142,11 @@
   $("#stEdit").onclick = () => { $("#dlgSettings").close(); editing = true; render(); };
   $("#stBoards").onclick = openBoardList;
   $("#stPin").onclick = async () => { await askPin("new"); $("#stPinState").textContent = settings.pin ? "PIN ativo. Ele é pedido para abrir as configurações." : "Sem PIN: qualquer pessoa pode editar."; $("#stPin").textContent = settings.pin ? "Trocar PIN" : "Definir PIN"; };
+  $("#stCols4").onclick = async () => {
+    const ok = await confirmBox("Usar 4 colunas", "Todas as pranchas passam a ter 4 colunas, com quadros e imagens maiores. A ordem dos quadros é mantida (linha por linha) e nada é apagado.", "Usar 4 colunas");
+    if (!ok) return;
+    Object.values(set.boards).forEach((b) => { if (b.cols !== 4) reflow(b, 4); }); save(); render(); toast("Pronto: todas as pranchas com 4 colunas.");
+  };
   $("#stSortAll").onclick = async () => {
     const ok = await confirmBox("Organizar todas as pranchas", "Todas as pranchas serão agrupadas por tipo de palavra (cor). Os quadros mudam de lugar, mas nenhum é apagado. Se quiser, exporte um backup antes.", "Organizar");
     if (!ok) return;
@@ -1476,7 +1497,7 @@
   function placeFree(b, bt) {
     let spot = null;
     b.grid.forEach((row, r) => row.forEach((id, c) => { if (!id && !spot) spot = [r, c]; }));
-    if (!spot) { if (b.rows >= 30) return false; b.grid.push(Array(b.cols).fill(null)); b.rows++; spot = [b.rows - 1, 0]; }
+    if (!spot) { if (b.rows >= 60) return false; b.grid.push(Array(b.cols).fill(null)); b.rows++; spot = [b.rows - 1, 0]; }
     b.buttons.push(bt); b.grid[spot[0]][spot[1]] = bt.id; return true;
   }
   // atualiza pranchas de versões antigas (também roda depois de importar um backup)
