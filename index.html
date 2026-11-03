@@ -104,8 +104,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .editbar button { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 12px; font-weight: 700; }
 .editbar button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 
+/* Área principal: menu lateral + grade */
+.main { flex: 1; min-height: 0; display: flex; gap: var(--gap); }
+.side { flex: 0 0 auto; width: 104px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+.side::-webkit-scrollbar { display: none; }
+.side button { flex: 1 0 auto; min-height: 60px; max-height: 96px; border-radius: 12px; border: 2px solid var(--line); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 2px; font-size: .78rem; font-weight: 700; line-height: 1.1; }
+.side button img, .side button .emo { width: 34px; height: 34px; object-fit: contain; font-size: 28px; line-height: 34px; text-align: center; }
+.side button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px; }
+.side button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); box-shadow: inset 5px 0 0 var(--accent); }
+.side button.home svg { width: 30px; height: 30px; }
+
 /* Grade */
-.grid { flex: 1; min-height: 0; display: grid; gap: var(--gap); }
+.grid { flex: 1; min-height: 0; min-width: 0; display: grid; gap: var(--gap); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .cell {
   position: relative; min-width: 0; min-height: 0; border-radius: var(--r); border: 2px solid var(--tile-line); color: var(--tile-ink);
   display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; gap: 2px; overflow: hidden;
@@ -166,6 +176,9 @@ dialog::backdrop { background: rgba(10, 16, 24, .55); }
 .libgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
 .libgrid button { border: 1px solid var(--line); background: #fff; color: #16202B; border-radius: 12px; padding: 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: .8rem; }
 .libgrid img { width: 64px; height: 64px; object-fit: contain; }
+.libgrid.real { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.libgrid.real img { width: 108px; height: 96px; object-fit: cover; border-radius: 8px; }
+.libgrid.real .cr { font-size: .68rem; color: #5B6878; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note { font-size: .85rem; color: var(--muted); line-height: 1.4; margin: 0; }
 .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .toggle:last-child { border-bottom: none; }
@@ -186,8 +199,26 @@ dialog::backdrop { background: rgba(10, 16, 24, .55); }
   .act.speak { width: 72px; }
   .sentence { min-height: 72px; }
   .nav button.navb .t { display: none; }
+  .side { width: 62px; }
+  .side button { min-height: 52px; font-size: .62rem; }
+  .side button img, .side button .emo { width: 28px; height: 28px; font-size: 24px; line-height: 28px; }
   :root { --label-size: .85rem; --gap: 4px; }
 }
+/* Convite para instalar */
+.install { position: fixed; z-index: 40; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: min(560px, calc(100vw - 24px)); background: var(--surface); color: var(--ink); border: 2px solid var(--accent); border-radius: 18px; box-shadow: 0 18px 50px rgba(0,0,0,.3); padding: 16px; display: flex; flex-direction: column; gap: 12px; -webkit-user-select: text; user-select: text; }
+.install.top { bottom: auto; top: calc(12px + env(safe-area-inset-top, 0px)); left: auto; right: max(12px, env(safe-area-inset-right, 0px)); transform: none; }
+.install .hd { display: flex; gap: 12px; align-items: center; }
+.install .hd img { width: 56px; height: 56px; border-radius: 13px; flex: 0 0 auto; }
+.install h3 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 1.25rem; }
+.install p { margin: 2px 0 0; color: var(--muted); font-size: .92rem; line-height: 1.35; }
+.install ol { margin: 0; padding-left: 1.4rem; display: flex; flex-direction: column; gap: 8px; line-height: 1.4; }
+.install ol svg { width: 22px; height: 22px; vertical-align: -5px; color: var(--accent); }
+.install .acts { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.install .arrow { position: fixed; z-index: 41; font-size: 2.6rem; color: var(--accent); pointer-events: none; animation: bob 1s ease-in-out infinite; }
+.install .arrow.up { top: calc(4px + env(safe-area-inset-top, 0px)); right: 96px; }
+.install .arrow.down { bottom: calc(2px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); }
+@keyframes bob { 50% { translate: 0 8px; } }
+@media (prefers-reduced-motion: reduce) { .install .arrow { animation: none; } }
 /* Ocultos, segurar para ativar, destaque da busca */
 .cell.is-hidden { opacity: .35; }
 .cell.is-hidden::after { content: "oculto"; position: absolute; top: 6px; left: 6px; font-size: .7rem; font-weight: 700; background: var(--ink); color: var(--bg); padding: 2px 6px; border-radius: 6px; }
@@ -251,9 +282,26 @@ dialog::backdrop { background: rgba(10, 16, 24, .55); }
     <button id="btnNewBoard">Nova prancha</button>
     <button class="primary" id="btnDoneEdit">Concluir</button>
   </div>
-  <div class="grid" id="grid" role="grid" aria-label="Prancha de comunicação"></div>
+  <div class="main">
+    <nav class="side" id="side" aria-label="Pastas"></nav>
+    <div class="grid" id="grid" role="grid" aria-label="Prancha de comunicação"></div>
+  </div>
 </div>
 <div class="scanbadge" id="scanbadge" hidden></div>
+<div class="install" id="install" data-noswitch hidden role="dialog" aria-labelledby="instT">
+  <div class="hd"><img src="icon-192.png" alt=""><div><h3 id="instT">Instale o Fala Junto</h3><p id="instSub">Cria um ícone na tela inicial, abre em tela cheia e funciona sem internet.</p></div></div>
+  <ol id="instSteps" hidden>
+    <li>Toque no botão <strong>Compartilhar</strong> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="ícone compartilhar"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg> <span id="instWhere">na barra do Safari</span>.</li>
+    <li>Role e toque em <strong>Adicionar à Tela de Início</strong> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg>.</li>
+    <li>Toque em <strong>Adicionar</strong>. Depois, abra sempre pelo ícone <strong>Fala Junto</strong>.</li>
+  </ol>
+  <div class="acts">
+    <button type="button" class="btn ghost" id="instLater">Agora não</button>
+    <button type="button" class="btn primary" id="instGo" hidden>Instalar</button>
+    <button type="button" class="btn primary" id="instOk" hidden>Entendi</button>
+  </div>
+  <div class="arrow" id="instArrow" hidden aria-hidden="true"></div>
+</div>
 
 <!-- Editor de quadro -->
 <dialog id="dlgButton"><form class="dlg" method="dialog" id="formButton">
@@ -265,6 +313,7 @@ dialog::backdrop { background: rgba(10, 16, 24, .55); }
         <button type="button" class="btn small" id="dbLib">Biblioteca</button>
         <label class="btn small" for="dbPhoto">Foto / galeria</label>
         <input type="file" id="dbPhoto" accept="image/*" hidden>
+        <button type="button" class="btn small" id="dbReal">Foto real (internet)</button>
         <button type="button" class="btn small" id="dbAra">ARASAAC (online)</button>
         <button type="button" class="btn small" id="dbEmoji">Emoji</button>
         <button type="button" class="btn small" id="dbNoImg">Sem imagem</button>
@@ -314,6 +363,17 @@ dialog::backdrop { background: rgba(10, 16, 24, .55); }
   </div>
 </div></dialog>
 
+<!-- Foto real (Openverse) -->
+<dialog id="dlgReal"><div class="dlg">
+  <header><h2>Foto real</h2><button type="button" class="btn ghost" data-close>Fechar</button></header>
+  <div class="body">
+    <form class="row" id="realForm"><div class="field"><label for="realQ">O que procurar</label><input type="search" id="realQ" autocomplete="off" placeholder="ex.: guaraná, coxinha, Coca-Cola"></div><button class="btn primary" type="submit" style="align-self:flex-end">Buscar</button></form>
+    <p class="note" id="realMsg">Fotos de licença livre (Creative Commons) do Openverse. Precisa de internet. A melhor foto, porém, é a do próprio objeto da criança: use “Foto / galeria”.</p>
+    <div class="libgrid real" id="realGrid"></div>
+    <div class="row"><button type="button" class="btn small" id="realMore" hidden>Mais fotos</button></div>
+  </div>
+</div></dialog>
+
 <!-- Emoji -->
 <dialog id="dlgEmoji"><form class="dlg" method="dialog" id="emojiForm">
   <header><h2>Usar emoji</h2><button type="button" class="btn ghost" data-close>Cancelar</button></header>
@@ -328,7 +388,7 @@ dialog::backdrop { background: rgba(10, 16, 24, .55); }
     <div class="field"><label for="bdName">Nome</label><input type="text" id="bdName" maxlength="40" autocomplete="off"></div>
     <div class="row">
       <div class="field"><label for="bdCols">Colunas</label><input type="number" id="bdCols" min="1" max="10"></div>
-      <div class="field"><label for="bdRows">Linhas</label><input type="number" id="bdRows" min="1" max="10"></div>
+      <div class="field"><label for="bdRows">Linhas</label><input type="number" id="bdRows" min="1" max="20"></div>
     </div>
     <p class="note" id="bdMsg"></p>
   </div>
@@ -383,6 +443,7 @@ dialog::backdrop { background: rgba(10, 16, 24, .55); }
       <div class="toggle"><label for="stLabels">Mostrar texto nos quadros</label><input type="checkbox" id="stLabels"></div>
       <div class="toggle"><label for="stPics">Mostrar imagens nos quadros</label><input type="checkbox" id="stPics"></div>
       <div class="toggle"><label for="stFont">Tamanho do texto</label><input type="range" id="stFont" min="0.8" max="1.6" step="0.1"></div>
+      <div class="toggle"><label for="stSide">Mostrar menu lateral de pastas</label><input type="checkbox" id="stSide"></div>
       <div class="toggle"><label for="stShowFind">Mostrar botão “Encontrar palavra”</label><input type="checkbox" id="stShowFind"></div>
       <div class="toggle"><label for="stShowFT">Mostrar botão “Primeiro / Depois”</label><input type="checkbox" id="stShowFT"></div>
     </div>
@@ -423,6 +484,7 @@ dialog::backdrop { background: rgba(10, 16, 24, .55); }
     <p class="note">Formato Open Board, compatível com CoughDrop, LibreAAC e outros apps de CAA.</p>
     <div class="row"><button class="btn danger" id="stReset">Restaurar pranchas padrão</button></div>
 
+    <div class="row"><button class="btn" id="stInstall">Instalar o app neste aparelho</button></div>
     <h3 class="section-title">Sobre</h3>
     <div class="credits">
       <p style="margin:0 0 6px"><strong>Fala Junto</strong> — app gratuito e de código aberto de Comunicação Alternativa. Funciona sem internet depois de instalado.</p>

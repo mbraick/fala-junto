@@ -53,7 +53,7 @@
   const DEFAULT_SETTINGS = {
     voiceURI: "", rate: 0.95, pitch: 1.1, speakOnTap: true, showLabels: true, showPics: true, fontScale: 1,
     pin: "", scan: { enabled: false, mode: "auto", interval: 1500, audio: false, touch: true },
-    sentenceMode: "frase", holdMs: 0, debounceMs: 0, showFind: true, showFT: true, logUsage: false,
+    showSide: true, sentenceMode: "frase", holdMs: 0, debounceMs: 0, showFind: true, showFT: true, logUsage: false,
     ft: { a: { image: "sym/m-wash-hands-to.svg", label: "lavar as mãos" }, b: { image: "sym/m-play-to.svg", label: "brincar" }, done: false },
   };
   let set = null;       // { version, root, boards: {id: board} }
@@ -68,7 +68,7 @@
     const d = clone(window.FALA_DEFAULT);
     const boards = {};
     d.boards.forEach((b) => (boards[b.id] = b));
-    return { version: 1, root: d.root, boards };
+    return { version: 2, root: d.root, boards };
   }
   function save() {
     clearTimeout(saveTimer);
@@ -132,11 +132,18 @@
     $("#boardTitle").textContent = b.name;
     $("#btnUp").disabled = stack.length <= 1;
     $("#btnHome").disabled = stack.length <= 1;
+    // fora do modo edição, linhas vazias no fim não aparecem (a prancha cresce conforme é preenchida)
+    let showRows = b.rows;
+    if (!editing) {
+      const visible = (id) => { const x = id && btnById(b, id); return x && !x.hidden; };
+      while (showRows > 1 && !(b.grid[showRows - 1] || []).some(visible)) showRows--;
+    }
+    const cellMin = window.innerWidth <= 560 ? 64 : 84;
     grid.style.gridTemplateColumns = `repeat(${b.cols}, minmax(0, 1fr))`;
-    grid.style.gridTemplateRows = `repeat(${b.rows}, minmax(0, 1fr))`;
+    grid.style.gridTemplateRows = `repeat(${showRows}, minmax(${cellMin}px, 1fr))`;
     grid.classList.toggle("editing", editing);
     grid.innerHTML = "";
-    for (let r = 0; r < b.rows; r++) {
+    for (let r = 0; r < showRows; r++) {
       for (let c = 0; c < b.cols; c++) {
         const id = (b.grid[r] || [])[c];
         let btn = id ? btnById(b, id) : null;
@@ -165,10 +172,41 @@
       }
     }
     $("#editbar").hidden = !editing;
+    renderSide();
     $("#btnFind").hidden = !settings.showFind;
     $("#btnFT").hidden = !settings.showFT;
     scan.rebuild();
   }
+  /* Menu lateral fixo: Início + pastas da prancha inicial */
+  function renderSide() {
+    const side = $("#side");
+    side.hidden = !settings.showSide;
+    if (side.hidden) return;
+    side.innerHTML = "";
+    const cur = board().id;
+    const rootB = set.boards[set.root];
+    const home = document.createElement("button"); home.type = "button"; home.className = "home" + (cur === set.root ? " on" : ""); home.dataset.side = set.root;
+    home.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>';
+    const ht = document.createElement("span"); ht.textContent = rootB.name; home.appendChild(ht);
+    home.setAttribute("aria-label", rootB.name);
+    side.appendChild(home);
+    rootB.grid.forEach((row) => row.forEach((id) => {
+      const bt = id && btnById(rootB, id);
+      if (!bt || !bt.loadBoard || bt.hidden || !set.boards[bt.loadBoard]) return;
+      const el = document.createElement("button"); el.type = "button"; el.dataset.side = bt.loadBoard;
+      if (stack.includes(bt.loadBoard)) el.classList.add("on");
+      const p = picEl(bt.image); if (p) el.appendChild(p);
+      const t = document.createElement("span"); t.textContent = bt.label; el.appendChild(t);
+      el.setAttribute("aria-label", bt.label + ", pasta");
+      side.appendChild(el);
+    }));
+  }
+  $("#side").addEventListener("click", (e) => {
+    const el = e.target.closest("button[data-side]"); if (!el || scan.active()) return;
+    goSide(el.dataset.side);
+  });
+  function goSide(id) { stack = id === set.root ? [set.root] : [set.root, id]; movingId = null; render(); }
+
   function renderStrip() {
     const s = $("#strip");
     s.innerHTML = "";
@@ -431,7 +469,7 @@
   $("#dbPhoto").addEventListener("change", async (e) => {
     const f = e.target.files[0]; e.target.value = "";
     if (!f) return;
-    try { edit.draft.image = await shrinkImage(f, 360); updatePrev(); } catch (err) { toast("Não consegui abrir essa imagem."); }
+    try { edit.draft.image = await shrinkImage(f, 360); delete edit.draft.imageLicense; updatePrev(); } catch (err) { toast("Não consegui abrir essa imagem."); }
   });
   function shrinkImage(file, max) {
     return new Promise((res, rej) => {
@@ -491,7 +529,7 @@
     }));
     return lib;
   }
-  $("#dbLib").onclick = () => openPicker($("#dbLabel").value, (path, name) => { edit.draft.image = path; if (!$("#dbLabel").value) $("#dbLabel").value = name; updatePrev(); });
+  $("#dbLib").onclick = () => openPicker($("#dbLabel").value, (path, name) => { edit.draft.image = path; delete edit.draft.imageLicense; if (!$("#dbLabel").value) $("#dbLabel").value = name; updatePrev(); });
   $("#libQ").addEventListener("input", renderLib);
   function renderLib() {
     const q = norm($("#libQ").value);
@@ -517,6 +555,45 @@
     if (v) { edit.draft.image = "emoji:" + v; updatePrev(); }
     $("#dlgEmoji").close();
   });
+
+  // Foto real (Openverse: fotos Creative Commons, sem chave de API)
+  let realPage = 1;
+  // termos em inglês ajudam o Openverse quando a busca em português traz pouco
+  const PT_EN = { "água": "water glass", "suco": "juice", "leite": "milk glass", "refrigerante": "soda", "carne": "beef", "frango": "roast chicken", "arroz": "white rice", "feijão": "black beans", "macarrão": "pasta", "batata": "potato", "batata frita": "french fries", "ovo": "fried egg", "pão": "bread", "queijo": "cheese", "bolo": "cake", "sorvete": "ice cream", "maçã": "apple", "uva": "grapes", "morango": "strawberry", "laranja": "orange fruit", "banana": "banana", "bola": "ball toy", "boneca": "doll", "carrinho": "toy car", "cama": "bed", "escova de dente": "toothbrush", "sapato": "shoes", "copo": "drinking glass", "prato": "dinner plate", "colher": "spoon", "biscoito": "cookies", "pipoca": "popcorn", "chocolate": "chocolate bar", "iogurte": "yogurt" };
+  $("#dbReal").onclick = () => { $("#realQ").value = $("#dbLabel").value; $("#realGrid").innerHTML = ""; $("#realMore").hidden = true; $("#dlgReal").showModal(); if ($("#realQ").value) { realPage = 1; realSearch(); } };
+  $("#realForm").addEventListener("submit", (e) => { e.preventDefault(); realPage = 1; $("#realGrid").innerHTML = ""; realSearch(); });
+  $("#realMore").onclick = () => { realPage++; realSearch(); };
+  async function realSearch() {
+    const raw = $("#realQ").value.trim(); if (!raw) return;
+    const q = PT_EN[norm(raw)] || PT_EN[raw.toLowerCase()] || raw;
+    const g = $("#realGrid"); const msg = document.createElement("p"); msg.className = "note"; msg.textContent = "Buscando fotos…"; g.appendChild(msg);
+    try {
+      const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&license_type=commercial,modification&mature=false&page_size=20&page=${realPage}`;
+      const r = await fetch(url); if (!r.ok) throw new Error(r.status);
+      const j = await r.json(); msg.remove();
+      if (!j.results.length && realPage === 1) { g.innerHTML = '<p class="note">Nenhuma foto encontrada. Tente outra palavra (em inglês costuma dar mais resultados).</p>'; return; }
+      j.results.forEach((t) => {
+        const b = document.createElement("button"); b.type = "button";
+        const i = document.createElement("img"); i.src = t.thumbnail; i.alt = t.title || ""; i.loading = "lazy";
+        const c = document.createElement("span"); c.className = "cr"; c.textContent = `${(t.license || "").toUpperCase()} · ${t.creator || "autor desconhecido"}`;
+        b.append(i, c);
+        b.onclick = async () => {
+          b.disabled = true; c.textContent = "Baixando…";
+          try {
+            const blob = await (await fetch(t.thumbnail)).blob();
+            edit.draft.image = await shrinkImage(blob, 360);
+            edit.draft.imageLicense = `CC ${(t.license || "").toUpperCase()} ${t.license_version || ""} · ${t.creator || ""} · ${t.foreign_landing_url || t.url || ""}`.trim();
+            if (!$("#dbLabel").value) $("#dbLabel").value = raw;
+            updatePrev(); $("#dlgReal").close();
+          } catch (e) { c.textContent = "Não consegui baixar"; b.disabled = false; }
+        };
+        g.appendChild(b);
+      });
+      $("#realMore").hidden = j.page_count <= realPage;
+    } catch (e) {
+      msg.textContent = "Não foi possível buscar fotos agora. Verifique a internet e tente de novo em alguns segundos.";
+    }
+  }
 
   // ARASAAC (online)
   $("#dbAra").onclick = () => { $("#araQ").value = $("#dbLabel").value; $("#araGrid").innerHTML = ""; $("#dlgAra").showModal(); if ($("#araQ").value) araSearch(); };
@@ -671,10 +748,10 @@
     let pos = null;
     for (let r = 0; r < b.rows && !pos; r++) for (let c = 0; c < b.cols && !pos; c++) if (!b.grid[r][c]) pos = [r, c];
     if (!pos) {
-      // prancha cheia: cria uma linha nova no fim (ou uma coluna, se já tiver 10 linhas)
-      if (b.rows < 10) { b.grid.push(Array(b.cols).fill(null)); b.rows++; pos = [b.rows - 1, 0]; }
+      // prancha cheia: cria uma linha nova no fim (ou uma coluna, se já tiver 20 linhas)
+      if (b.rows < 20) { b.grid.push(Array(b.cols).fill(null)); b.rows++; pos = [b.rows - 1, 0]; }
       else if (b.cols < 10) { b.grid.forEach((row) => row.push(null)); b.cols++; pos = [0, b.cols - 1]; }
-      else { toast("Esta prancha chegou ao limite de 10 × 10. Crie uma pasta nova para mais palavras."); return; }
+      else { toast("Esta prancha chegou ao limite de 20 linhas × 10 colunas. Crie uma pasta nova para mais palavras."); return; }
       save(); render(); toast("A prancha estava cheia: criei uma linha nova.");
     }
     openButtonEditor(null, pos[0], pos[1]);
@@ -695,7 +772,7 @@
     e.preventDefault();
     const name = $("#bdName").value.trim() || "Sem nome";
     const cols = Math.max(1, Math.min(10, +$("#bdCols").value || 4));
-    const rows = Math.max(1, Math.min(10, +$("#bdRows").value || 3));
+    const rows = Math.max(1, Math.min(20, +$("#bdRows").value || 3));
     if (!boardEdit) {
       const nb = newBoard(name, cols, rows);
       stack.push(nb.id); $("#dlgBoard").close(); render(); toast("Prancha criada. Toque nos espaços + para adicionar quadros."); return;
@@ -746,7 +823,7 @@
     $("#stScanAudio").checked = settings.scan.audio; $("#stScanTouch").checked = settings.scan.touch;
     $("#stMode").value = settings.sentenceMode; $("#stHold").value = settings.holdMs; $("#stDeb").value = settings.debounceMs;
     $("#stHoldV").textContent = msTxt(settings.holdMs); $("#stDebV").textContent = msTxt(settings.debounceMs);
-    $("#stShowFind").checked = settings.showFind; $("#stShowFT").checked = settings.showFT; $("#stLog").checked = settings.logUsage;
+    $("#stSide").checked = settings.showSide; $("#stShowFind").checked = settings.showFind; $("#stShowFT").checked = settings.showFT; $("#stLog").checked = settings.logUsage;
     $("#stPinState").textContent = settings.pin ? "PIN ativo. Ele é pedido para abrir as configurações." : "Sem PIN: qualquer pessoa pode editar. Recomendado definir um PIN.";
     $("#stPin").textContent = settings.pin ? "Trocar PIN" : "Definir PIN";
     $("#dlgSettings").showModal();
@@ -769,6 +846,7 @@
   bind("#stHold", "input", (t) => { settings.holdMs = +t.value; $("#stHoldV").textContent = msTxt(t.value); });
   bind("#stDeb", "input", (t) => { settings.debounceMs = +t.value; $("#stDebV").textContent = msTxt(t.value); });
   bind("#stShowFind", "change", (t) => (settings.showFind = t.checked));
+  bind("#stSide", "change", (t) => (settings.showSide = t.checked));
   bind("#stShowFT", "change", (t) => (settings.showFT = t.checked));
   bind("#stLog", "change", (t) => (settings.logUsage = t.checked));
   $("#stReport").onclick = openReport;
@@ -819,7 +897,8 @@
     };
   }
   function imgLicense(src, bt) {
-    if (bt && bt.imageLicense) return { type: bt.imageLicense, author_name: "Sergio Palao / ARASAAC", author_url: "https://arasaac.org" };
+    if (bt && bt.imageLicense && /ARASAAC/.test(bt.imageLicense)) return { type: bt.imageLicense, author_name: "Sergio Palao / ARASAAC", author_url: "https://arasaac.org" };
+    if (bt && bt.imageLicense) return { type: bt.imageLicense };
     if (src.includes("sym/m-")) return { type: "CC BY-SA 4.0", author_name: "Mulberry Symbols (Steve Lee)", author_url: "https://mulberrysymbols.org" };
     if (src.includes("sym/e-")) return { type: "CC BY-SA 4.0", author_name: "OpenMoji", author_url: "https://openmoji.org" };
     return undefined;
@@ -948,7 +1027,7 @@
     const ids = new Set(imported.map((b) => b.id).concat(Object.keys(target)));
     imported.forEach((b) => { b.buttons.forEach((bt) => { if (bt.loadBoard && !ids.has(bt.loadBoard)) { delete bt.loadBoard; bt.cat = "subst"; } }); target[b.id] = b; });
     const rootId = pathToId[man.root] || imported[0]?.id;
-    if (replace) { set = { version: 1, root: rootId, boards: target }; stack = [rootId]; }
+    if (replace) { set = { version: 2, root: rootId, boards: target }; stack = [rootId]; }
     else { stack = [set.root, rootId]; }
     save(); $("#dlgSettings").close(); render();
     toast(`${imported.length} pranchas importadas.`);
@@ -964,6 +1043,8 @@
       groups = [];
       const tools = ["#btnSpeak", "#btnBack", "#btnClear", "#btnHome", "#btnUp"].map((s) => $(s)).filter((e) => !e.disabled);
       groups.push({ wrap: null, items: tools });
+      const sideItems = settings.showSide ? $$("#side button") : [];
+      if (sideItems.length) groups.push({ wrap: null, items: sideItems });
       const b = board();
       for (let r = 0; r < b.rows; r++) {
         const items = $$(`.cell[data-r="${r}"]`, grid).filter((e) => e.dataset.id);
@@ -998,6 +1079,7 @@
     function fire(el) {
       clear();
       const id = el.dataset.id;
+      if (el.dataset.side) { goSide(el.dataset.side); return; }
       if (id) activate(btnById(board(), id), true);
       else ({ btnSpeak: doSpeak, btnBack: doBackspace, btnClear: doClear, btnHome: goHome, btnUp: goUp })[el.id]?.();
       // render() já reinicia quando muda de prancha; senão volta para as linhas
@@ -1030,18 +1112,61 @@
     if (e.key === "Backspace") { e.preventDefault(); doBackspace(); }
   });
 
+  /* ---------- Convite para instalar ---------- */
+  const install = (() => {
+    let deferred = null;
+    const ua = navigator.userAgent;
+    const isIPad = /iPad/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const isIOS = isIPad || /iPhone|iPod/.test(ua);
+    const standalone = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+    const canInstallHere = () => !!document.querySelector('link[rel="manifest"]') && !standalone();
+    const box = $("#install");
+    const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+    const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+    function show(force) {
+      if (!canInstallHere()) { if (force) toast(standalone() ? "O app já está instalado neste aparelho." : "Abra o endereço do app no navegador para instalar."); return; }
+      if (!force) { const until = +lsGet("fj:installLater") || 0; if (Date.now() < until) return; }
+      if (isIOS) {
+        $("#instSteps").hidden = false; $("#instOk").hidden = false; $("#instGo").hidden = true;
+        $("#instSub").textContent = "Assim ele ganha um ícone na tela inicial, abre em tela cheia e funciona sem internet.";
+        $("#instWhere").textContent = isIPad ? "no canto de cima, à direita, do Safari" : "na barra de baixo do Safari";
+        box.classList.toggle("top", isIPad);
+        const ar = $("#instArrow"); ar.hidden = false; ar.className = "arrow " + (isIPad ? "up" : "down"); ar.textContent = isIPad ? "⬆" : "⬇";
+      } else if (deferred) {
+        $("#instSteps").hidden = true; $("#instOk").hidden = true; $("#instGo").hidden = false; $("#instArrow").hidden = true;
+      } else if (force) {
+        toast("No Chrome ou Edge: menu ⋮ → Instalar app. No Safari: Compartilhar → Adicionar à Tela de Início.", 5000); return;
+      } else return;
+      box.hidden = false;
+    }
+    function hide(later) { box.hidden = true; if (later) lsSet("fj:installLater", String(Date.now() + 3 * 864e5)); }
+    window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e; show(false); });
+    window.addEventListener("appinstalled", () => { hide(false); toast("Fala Junto instalado! Abra pelo ícone na tela inicial."); });
+    $("#instLater").onclick = () => hide(true);
+    $("#instOk").onclick = () => hide(true);
+    $("#instGo").onclick = async () => { if (!deferred) return; deferred.prompt(); const r = await deferred.userChoice.catch(() => null); deferred = null; hide(!r || r.outcome !== "accepted"); };
+    return { show, boot() { if (isIOS) setTimeout(() => show(false), 1200); } };
+  })();
+  $("#stInstall").onclick = () => { $("#dlgSettings").close(); install.show(true); };
+
   /* ---------- Início ---------- */
   async function boot() {
     try { set = await store.get("set"); } catch (e) {}
     try { settings = await store.get("settings"); } catch (e) {}
     try { usage = (await store.get("usage")) || usage; } catch (e) {}
     if (!set || !set.boards || !set.boards[set.root]) set = fromDefault();
+    // versão 2: pranchas com o dobro de linhas (as novas ficam vazias para personalizar)
+    if ((set.version || 1) < 2) {
+      Object.values(set.boards).forEach((b) => { const add = Math.min(b.rows, 20 - b.rows); for (let i = 0; i < add; i++) b.grid.push(Array(b.cols).fill(null)); b.rows += add; });
+      set.version = 2; store.set("set", set);
+    }
     settings = Object.assign(clone(DEFAULT_SETTINGS), settings || {});
     settings.scan = Object.assign(clone(DEFAULT_SETTINGS.scan), settings.scan || {});
     settings.ft = Object.assign(clone(DEFAULT_SETTINGS.ft), settings.ft || {});
     stack = [set.root];
     applyLook(); loadVoices(); render(); renderStrip();
-    window.addEventListener("resize", () => { clearTimeout(boot.rt); boot.rt = setTimeout(applyLook, 150); });
+    install.boot();
+    window.addEventListener("resize", () => { clearTimeout(boot.rt); boot.rt = setTimeout(() => { applyLook(); render(); }, 150); });
     // manter a tela acesa quando possível
     const wake = async () => { try { if (document.visibilityState === "visible" && navigator.wakeLock) await navigator.wakeLock.request("screen"); } catch (e) {} };
     wake(); document.addEventListener("visibilitychange", wake);
