@@ -978,9 +978,19 @@
     const f = e.target.files[0]; e.target.value = "";
     if (!f) return;
     try {
-      if (/\.obz$/i.test(f.name) || f.type.includes("zip")) await importObz(f);
-      else await importObf(f);
-    } catch (err) { console.error(err); toast("Não consegui importar esse arquivo. Ele precisa ser .obf ou .obz (Open Board)."); }
+      // descobre o tipo pelo conteúdo: o iPad às vezes renomeia (.zip) ou tira a extensão do arquivo
+      const head = new Uint8Array(await f.slice(0, 4).arrayBuffer());
+      const isZip = head[0] === 0x50 && head[1] === 0x4b; // "PK"
+      if (isZip) await importObz(f);
+      else {
+        const txt = (await f.slice(0, 200).text()).trim();
+        if (txt.startsWith("{")) await importObf(f);
+        else throw new Error("formato desconhecido");
+      }
+    } catch (err) {
+      console.error(err);
+      toast("Não consegui importar esse arquivo. Escolha o backup “.obz” exportado pelo Fala Junto (ou uma prancha “.obf”).", 5000);
+    }
   });
   const freshIdMap = () => { const m = {}; return (old) => (m[old] ||= set.boards[old] || old === "" ? uid("p") : old); };
   async function importObf(f) {
