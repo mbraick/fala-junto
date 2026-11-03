@@ -1501,7 +1501,7 @@
     b.buttons.push(bt); b.grid[spot[0]][spot[1]] = bt.id; return true;
   }
   // atualiza pranchas de versões antigas (também roda depois de importar um backup)
-  const SET_VERSION = 6;
+  const SET_VERSION = 7;
   function migrate() {
     // versão 2: pranchas com o dobro de linhas (as novas ficam vazias para personalizar)
     if ((set.version || 1) < 2) {
@@ -1525,7 +1525,12 @@
         }
       };
       ensureFolder("objetos", true); ensureFolder("cores"); ensureFolder("numeros");
-      addNew(d, 4, placeFree); addNew(d, 5, placeFree);
+      addNew(d, 4, placeFree); addNew(d, 5, placeFree); addNew(d, 7, placeFree);
+      // figuras padrão que foram trocadas por outras mais claras (só se a pessoa não mudou a figura)
+      (window.FALA_IMG_FIX || []).forEach(([bid, label, oldImg, newImg]) => {
+        const ub = set.boards[bid]; if (!ub) return;
+        ub.buttons.forEach((x) => { if (norm(x.label) === norm(label) && x.image === oldImg) x.image = newImg; });
+      });
       set.version = SET_VERSION;
     }
     store.set("set", set);
