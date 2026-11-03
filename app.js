@@ -142,7 +142,7 @@
     // altura mínima proporcional à largura do quadro, para ele não ficar achatado quando há poucas colunas
     const gapPx = parseFloat(getComputedStyle(grid).columnGap) || 6;
     const colW = ((grid.clientWidth || window.innerWidth) - gapPx * (b.cols - 1)) / b.cols;
-    const rowMin = Math.round(Math.max(cellMin, Math.min(colW * 0.8, 240)));
+    const rowMin = Math.round(Math.max(cellMin * 1.15, Math.min(colW * 0.95, 280)));
     grid.style.gridTemplateColumns = `repeat(${b.cols}, minmax(0, 1fr))`;
     grid.style.gridTemplateRows = `repeat(${showRows}, minmax(${rowMin}px, 1fr))`;
     grid.classList.toggle("editing", editing);
