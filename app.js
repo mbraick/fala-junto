@@ -68,7 +68,7 @@
     const d = clone(window.FALA_DEFAULT);
     const boards = {};
     d.boards.forEach((b) => (boards[b.id] = b));
-    return { version: 2, root: d.root, boards };
+    return { version: 4, root: d.root, boards };
   }
   function save() {
     clearTimeout(saveTimer);
@@ -657,7 +657,7 @@
   $("#ftPickB").onclick = ftPick("b");
 
 
-  /* ---------- Jogo "Cadê?" (estilo Lince) ---------- */
+  /* ---------- Jogo "Cadê?" (procurar e apontar) ---------- */
   const game = (() => {
     let pool = [], shown = [], target = null, round = 0, stars = 0, misses = 0, firstTry = 0, busy = false, helpT = null;
     const cfg = () => settings.game;
@@ -1176,7 +1176,7 @@
     const ids = new Set(imported.map((b) => b.id).concat(Object.keys(target)));
     imported.forEach((b) => { b.buttons.forEach((bt) => { if (bt.loadBoard && !ids.has(bt.loadBoard)) { delete bt.loadBoard; bt.cat = "subst"; } }); target[b.id] = b; });
     const rootId = pathToId[man.root] || imported[0]?.id;
-    if (replace) { set = { version: 2, root: rootId, boards: target }; stack = [rootId]; }
+    if (replace) { set = { version: 4, root: rootId, boards: target }; stack = [rootId]; }
     else { stack = [set.root, rootId]; }
     save(); $("#dlgSettings").close(); render();
     toast(`${imported.length} pranchas importadas.`);
@@ -1330,6 +1330,49 @@
     if ((set.version || 1) < 2) {
       Object.values(set.boards).forEach((b) => { const add = Math.min(b.rows, 20 - b.rows); for (let i = 0; i < add; i++) b.grid.push(Array(b.cols).fill(null)); b.rows += add; });
       set.version = 2; store.set("set", set);
+    }
+    // versão 3: pacote "Objetos" (300 objetos) para quem ainda não tem
+    if ((set.version || 1) < 3) {
+      if (!set.boards["objetos"]) {
+        const d = fromDefault();
+        const ids = ["objetos"].concat(d.boards["objetos"].buttons.map((x) => x.loadBoard));
+        ids.forEach((id) => { if (!set.boards[id]) set.boards[id] = d.boards[id]; });
+        const root = set.boards[set.root];
+        const folder = clone(d.boards[d.root].buttons.find((x) => x.loadBoard === "objetos"));
+        folder.id = uid();
+        let spot = null;
+        root.grid.forEach((row, r) => row.forEach((id, c) => { if (!id && !spot) spot = [r, c]; }));
+        if (!spot) { root.grid.push(Array(root.cols).fill(null)); root.rows++; spot = [root.rows - 1, 0]; }
+        root.buttons.push(folder); root.grid[spot[0]][spot[1]] = folder.id;
+      }
+      set.version = 3; store.set("set", set);
+    }
+    // versão 4: mais opções nas pranchas padrão + pastas Cores e Números.
+    // Só acrescenta itens novos em espaços livres; nada do que a pessoa criou é movido ou apagado.
+    if ((set.version || 1) < 4) {
+      const d = fromDefault();
+      const place = (b, bt) => {
+        let spot = null;
+        b.grid.forEach((row, r) => row.forEach((id, c) => { if (!id && !spot) spot = [r, c]; }));
+        if (!spot) { if (b.rows >= 20) return false; b.grid.push(Array(b.cols).fill(null)); b.rows++; spot = [b.rows - 1, 0]; }
+        b.buttons.push(bt); b.grid[spot[0]][spot[1]] = bt.id; return true;
+      };
+      const root = set.boards[set.root];
+      ["cores", "numeros"].forEach((id) => {
+        if (set.boards[id] || !d.boards[id]) return;
+        set.boards[id] = d.boards[id];
+        const f = d.boards[d.root].buttons.find((x) => x.loadBoard === id);
+        if (f && root) place(root, Object.assign(clone(f), { id: uid() }));
+      });
+      Object.values(d.boards).forEach((db) => {
+        const ub = set.boards[db.id]; if (!ub || ub === d.boards[db.id]) return;
+        const have = new Set(ub.buttons.map((x) => norm(x.label)));
+        db.buttons.forEach((bt) => {
+          if (bt.v !== 4 || have.has(norm(bt.label))) return;
+          if (place(ub, Object.assign(clone(bt), { id: uid() }))) have.add(norm(bt.label));
+        });
+      });
+      set.version = 4; store.set("set", set);
     }
     settings = Object.assign(clone(DEFAULT_SETTINGS), settings || {});
     settings.scan = Object.assign(clone(DEFAULT_SETTINGS.scan), settings.scan || {});
