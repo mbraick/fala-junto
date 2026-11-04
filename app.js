@@ -151,7 +151,7 @@
       const maxH = (H - gapPx * (fitRows - 1)) / fitRows;
       let tileW = (W - gapPx * (b.cols - 1)) / b.cols;
       let tileH = Math.max(cellMin, Math.min(tileW * 0.92, maxH));
-      tileW = Math.min(tileW, tileH * 1.3);
+      tileW = Math.min(tileW, tileH * 1.25);
       grid.style.gridTemplateColumns = `repeat(${b.cols}, ${Math.floor(tileW)}px)`;
       grid.style.gridTemplateRows = `repeat(${showRows}, ${Math.floor(tileH)}px)`;
       grid.style.justifyContent = "center";
@@ -1117,6 +1117,7 @@
     $("#stScanAudio").checked = settings.scan.audio; $("#stScanTouch").checked = settings.scan.touch;
     $("#stMode").value = settings.sentenceMode; $("#stHold").value = settings.holdMs; $("#stDeb").value = settings.debounceMs;
     $("#stHoldV").textContent = msTxt(settings.holdMs); $("#stDebV").textContent = msTxt(settings.debounceMs);
+    $("#stCols").value = String(settings.deviceCols || 0);
     $("#stRelated").checked = settings.showRelated; $("#stFocus").checked = settings.focusMode;
     $("#stFocusInfo").textContent = focusCount() ? `${focusCount()} palavras marcadas em foco.` : "Nenhuma palavra em foco ainda. No modo edição, use “Marcar foco” e toque nas palavras da semana.";
     $("#stShowGame").checked = settings.showGame; $("#stSide").checked = settings.showSide; $("#stShowFind").checked = settings.showFind; $("#stShowFT").checked = settings.showFT; $("#stLog").checked = settings.logUsage;
@@ -1155,11 +1156,15 @@
   $("#stEdit").onclick = () => { $("#dlgSettings").close(); editing = true; render(); };
   $("#stBoards").onclick = openBoardList;
   $("#stPin").onclick = async () => { await askPin("new"); $("#stPinState").textContent = settings.pin ? "PIN ativo. Ele é pedido para abrir as configurações." : "Sem PIN: qualquer pessoa pode editar."; $("#stPin").textContent = settings.pin ? "Trocar PIN" : "Definir PIN"; };
-  $("#stCols4").onclick = async () => {
-    const ok = await confirmBox("Usar 5 colunas", "Todas as pranchas passam a ter 5 colunas, o tamanho recomendado. A ordem dos quadros é mantida (linha por linha) e nada é apagado.", "Usar 5 colunas");
-    if (!ok) return;
-    Object.values(set.boards).forEach((b) => { if (b.cols !== 5) reflow(b, 5); }); save(); render(); toast("Pronto: todas as pranchas com 5 colunas.");
-  };
+  $("#stCols").addEventListener("change", async (e) => {
+    const n = +e.target.value;
+    if (n) {
+      const ok = await confirmBox(`Usar ${n} colunas`, `Todas as pranchas deste aparelho passam a ter ${n} colunas. A ordem das palavras é mantida (linha por linha) e nada é apagado.`, `Usar ${n} colunas`);
+      if (!ok) { e.target.value = String(settings.deviceCols || 0); return; }
+    }
+    settings.deviceCols = n; applyDeviceCols(); save(); render();
+    if (n) toast(`Pronto: pranchas com ${n} colunas neste aparelho.`);
+  });
   $("#stSortAll").onclick = async () => {
     const ok = await confirmBox("Organizar todas as pranchas", "Todas as pranchas serão agrupadas por tipo de palavra (cor). Os quadros mudam de lugar, mas nenhum é apagado. Se quiser, exporte um backup antes.", "Organizar");
     if (!ok) return;
@@ -1168,7 +1173,7 @@
   $("#stReset").onclick = async () => {
     const ok = await confirmBox("Restaurar pranchas padrão", "Todas as pranchas e quadros que você criou ou editou serão apagados e o vocabulário original volta. Faça um backup (.obz) antes se quiser guardar.", "Restaurar");
     if (!ok) return;
-    set = fromDefault(); stack = [set.root]; save(); $("#dlgSettings").close(); render(); toast("Pranchas padrão restauradas.");
+    set = fromDefault(); applyDeviceCols(); stack = [set.root]; save(); $("#dlgSettings").close(); render(); toast("Pranchas padrão restauradas.");
   };
 
   /* ---------- Open Board Format (OBF / OBZ) ---------- */
@@ -1350,7 +1355,7 @@
     imported.forEach((b) => { b.buttons.forEach((bt) => { if (bt.loadBoard && !ids.has(bt.loadBoard)) { delete bt.loadBoard; bt.cat = "subst"; } }); target[b.id] = b; });
     const rootId = pathToId[man.root] || imported[0]?.id;
     // backup antigo: marca como versão 2 para receber as pastas e os itens novos que ainda não tem
-    if (replace) { set = { version: 2, root: rootId, boards: target }; stack = [rootId]; migrate(); }
+    if (replace) { set = { version: 2, root: rootId, boards: target }; stack = [rootId]; migrate(); applyDeviceCols(); }
     else { stack = [set.root, rootId]; }
     save(); $("#dlgSettings").close(); render();
     toast(`${imported.length} pranchas importadas.`);
@@ -1548,6 +1553,15 @@
     }
     store.set("set", set);
   }
+  const IS_IPAD = /iPad/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  // ajusta todas as pranchas ao número de colunas escolhido para este aparelho (mantém a ordem de leitura)
+  function applyDeviceCols() {
+    const n = settings && settings.deviceCols;
+    if (!n) return;
+    let changed = false;
+    Object.values(set.boards).forEach((b) => { if (b.cols !== n) { reflow(b, n); changed = true; } });
+    if (changed) store.set("set", set);
+  }
   async function boot() {
     try { set = await store.get("set"); } catch (e) {}
     try { settings = await store.get("settings"); } catch (e) {}
@@ -1558,6 +1572,9 @@
     settings.scan = Object.assign(clone(DEFAULT_SETTINGS.scan), settings.scan || {});
     settings.ft = Object.assign(clone(DEFAULT_SETTINGS.ft), settings.ft || {});
     settings.game = Object.assign(clone(DEFAULT_SETTINGS.game), settings.game || {});
+    // iPad: 4 colunas por padrão (quadros maiores na tela de 10"); nos outros aparelhos, o que vier na prancha
+    if (settings.deviceCols === undefined) settings.deviceCols = IS_IPAD ? 4 : 0;
+    applyDeviceCols();
     stack = [set.root];
     applyLook(); loadVoices(); render(); renderStrip();
     install.boot();

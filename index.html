@@ -651,7 +651,14 @@ input[type=range] { accent-color: var(--accent); }
       <input type="file" id="stImport" hidden>
     </div>
     <p class="note">Formato Open Board, compatível com CoughDrop, LibreAAC e outros apps de CAA.</p>
-    <div class="row"><button class="btn" id="stCols4">Usar 5 colunas em todas as pranchas</button></div>
+    <div class="field"><label for="stCols">Colunas neste aparelho</label>
+      <select id="stCols">
+        <option value="0">Como está em cada prancha</option>
+        <option value="4">4 colunas (recomendado no iPad)</option>
+        <option value="5">5 colunas (recomendado no computador)</option>
+        <option value="6">6 colunas</option>
+      </select></div>
+    <p class="note">Vale só para este aparelho. A ordem das palavras é mantida (linha por linha) e nada é apagado.</p>
     <div class="row"><button class="btn" id="stSortAll">Organizar todas as pranchas por tipo de palavra</button></div>
     <p class="note">Agrupa os quadros pela cor: pessoas, ações, descrição, coisas, social, “não”/urgente, perguntas e, por último, as pastas. A ordem dentro de cada grupo é mantida.</p>
     <div class="row"><button class="btn danger" id="stReset">Restaurar pranchas padrão</button></div>
