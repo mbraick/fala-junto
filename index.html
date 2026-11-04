@@ -122,15 +122,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .grid { flex: 1; min-height: 0; min-width: 0; display: grid; gap: var(--gap); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .cell {
   position: relative; min-width: 0; min-height: 0; border-radius: var(--r); border: 2px solid var(--tile-line); color: var(--tile-ink);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; gap: 2px; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5% 5% 4%; gap: 1px; overflow: hidden;
   transition: transform .08s ease;
 }
 .cell:active { transform: scale(.96); }
 .cell .pic { flex: 1; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
-.cell .pic img { max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; -webkit-user-drag: none; }
+.cell .pic img { max-width: 94%; max-height: 100%; object-fit: contain; pointer-events: none; -webkit-user-drag: none; }
 .cell .pic .emo { font-size: min(9vh, 9vw); line-height: 1; }
 .cell { container-type: inline-size; }
-.cell .lbl { font-weight: 700; font-size: min(var(--label-size), 18cqi); line-height: 1.22; padding-bottom: 1px; text-align: center; max-width: 100%; overflow: hidden; overflow-wrap: anywhere; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.cell .lbl { font-weight: 700; font-size: clamp(11px, 10cqi, 20px); line-height: 1.22; padding-bottom: 1px; text-align: center; max-width: 100%; overflow: hidden; overflow-wrap: anywhere; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .cell.folder { border-width: 2px; border-style: solid; border-color: #8C97A4; box-shadow: inset 0 6px 0 #8C97A4; }
 .cell.empty { background: transparent; border: 2px dashed transparent; }
 .editing .cell.empty { border-color: var(--line); color: var(--muted); }
@@ -651,7 +651,7 @@ input[type=range] { accent-color: var(--accent); }
       <input type="file" id="stImport" hidden>
     </div>
     <p class="note">Formato Open Board, compatível com CoughDrop, LibreAAC e outros apps de CAA.</p>
-    <div class="row"><button class="btn" id="stCols4">Usar 4 colunas em todas as pranchas</button></div>
+    <div class="row"><button class="btn" id="stCols4">Usar 5 colunas em todas as pranchas</button></div>
     <div class="row"><button class="btn" id="stSortAll">Organizar todas as pranchas por tipo de palavra</button></div>
     <p class="note">Agrupa os quadros pela cor: pessoas, ações, descrição, coisas, social, “não”/urgente, perguntas e, por último, as pastas. A ordem dentro de cada grupo é mantida.</p>
     <div class="row"><button class="btn danger" id="stReset">Restaurar pranchas padrão</button></div>

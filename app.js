@@ -138,13 +138,25 @@
       const visible = (id) => { const x = id && btnById(b, id); return x && !x.hidden; };
       while (showRows > 1 && !(b.grid[showRows - 1] || []).some(visible)) showRows--;
     }
-    const cellMin = window.innerWidth <= 560 ? 64 : 84;
-    // altura mínima proporcional à largura do quadro, para ele não ficar achatado quando há poucas colunas
-    const gapPx = parseFloat(getComputedStyle(grid).columnGap) || 6;
-    const colW = ((grid.clientWidth || window.innerWidth) - gapPx * (b.cols - 1)) / b.cols;
-    const rowMin = Math.round(Math.max(cellMin * 1.15, Math.min(colW * 0.95, 280)));
-    grid.style.gridTemplateColumns = `repeat(${b.cols}, minmax(0, 1fr))`;
-    grid.style.gridTemplateRows = `repeat(${showRows}, minmax(${rowMin}px, 1fr))`;
+    renderSide(); // antes de medir: o menu lateral muda a largura disponível
+    // Proporção dos quadros:
+    //  - pelo menos 4 linhas visíveis sem rolar (3 em telas baixas)
+    //  - quadro quase quadrado: altura até 92% da largura e largura até 1,3× a altura
+    //  - em telas largas a prancha fica centralizada em vez de esticar os quadros
+    {
+      const cellMin = window.innerWidth <= 560 ? 58 : 76;
+      const gapPx = parseFloat(getComputedStyle(grid).columnGap) || 6;
+      const W = grid.clientWidth || window.innerWidth, H = grid.clientHeight || window.innerHeight * 0.75;
+      const fitRows = H >= 480 ? 4 : 3;
+      const maxH = (H - gapPx * (fitRows - 1)) / fitRows;
+      let tileW = (W - gapPx * (b.cols - 1)) / b.cols;
+      let tileH = Math.max(cellMin, Math.min(tileW * 0.92, maxH));
+      tileW = Math.min(tileW, tileH * 1.3);
+      grid.style.gridTemplateColumns = `repeat(${b.cols}, ${Math.floor(tileW)}px)`;
+      grid.style.gridTemplateRows = `repeat(${showRows}, ${Math.floor(tileH)}px)`;
+      grid.style.justifyContent = "center";
+      grid.style.alignContent = "start";
+    }
     grid.classList.toggle("editing", editing);
     grid.innerHTML = "";
     for (let r = 0; r < showRows; r++) {
@@ -188,7 +200,8 @@
   /* Menu lateral fixo: Início + pastas da prancha inicial */
   function renderSide() {
     const side = $("#side");
-    side.hidden = !settings.showSide;
+    // no celular em pé o menu lateral fica escondido para sobrar espaço para os quadros
+    side.hidden = !settings.showSide || window.innerWidth < 560;
     if (side.hidden) return;
     side.innerHTML = "";
     const cur = board().id;
@@ -1143,9 +1156,9 @@
   $("#stBoards").onclick = openBoardList;
   $("#stPin").onclick = async () => { await askPin("new"); $("#stPinState").textContent = settings.pin ? "PIN ativo. Ele é pedido para abrir as configurações." : "Sem PIN: qualquer pessoa pode editar."; $("#stPin").textContent = settings.pin ? "Trocar PIN" : "Definir PIN"; };
   $("#stCols4").onclick = async () => {
-    const ok = await confirmBox("Usar 4 colunas", "Todas as pranchas passam a ter 4 colunas, com quadros e imagens maiores. A ordem dos quadros é mantida (linha por linha) e nada é apagado.", "Usar 4 colunas");
+    const ok = await confirmBox("Usar 5 colunas", "Todas as pranchas passam a ter 5 colunas, o tamanho recomendado. A ordem dos quadros é mantida (linha por linha) e nada é apagado.", "Usar 5 colunas");
     if (!ok) return;
-    Object.values(set.boards).forEach((b) => { if (b.cols !== 4) reflow(b, 4); }); save(); render(); toast("Pronto: todas as pranchas com 4 colunas.");
+    Object.values(set.boards).forEach((b) => { if (b.cols !== 5) reflow(b, 5); }); save(); render(); toast("Pronto: todas as pranchas com 5 colunas.");
   };
   $("#stSortAll").onclick = async () => {
     const ok = await confirmBox("Organizar todas as pranchas", "Todas as pranchas serão agrupadas por tipo de palavra (cor). Os quadros mudam de lugar, mas nenhum é apagado. Se quiser, exporte um backup antes.", "Organizar");
@@ -1353,7 +1366,7 @@
       groups = [];
       const tools = ["#btnSpeak", "#btnBack", "#btnClear", "#btnHome", "#btnUp"].map((s) => $(s)).filter((e) => !e.disabled);
       groups.push({ wrap: null, items: tools });
-      const sideItems = settings.showSide ? $$("#side button") : [];
+      const sideItems = settings.showSide && !$("#side").hidden ? $$("#side button") : [];
       if (sideItems.length) groups.push({ wrap: null, items: sideItems });
       const b = board();
       for (let r = 0; r < b.rows; r++) {
